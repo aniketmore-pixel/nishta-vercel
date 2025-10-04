@@ -101,23 +101,44 @@ const Home = () => {
           </CardContent>
         </Card>
 
-        {/* Application Status Card */}
+        {/* Profile & Application Status Card */}
         <Card className="shadow-card">
           <CardHeader>
-            <CardTitle>Loan Applications</CardTitle>
-            <CardDescription>Track your application status</CardDescription>
+            <CardTitle>Your Status</CardTitle>
+            <CardDescription>Profile completion and loan application tracking</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Profile Completion */}
+            <div className="p-4 bg-primary/5 rounded-lg border border-primary/10">
+              <div className="flex items-start gap-3 mb-3">
+                <Shield className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                <div className="text-sm flex-1">
+                  <p className="font-medium mb-1">Profile Completion: {profileCompletion}%</p>
+                  <p className="text-muted-foreground text-xs mb-2">
+                    Complete remaining sections to unlock higher loan amounts
+                  </p>
+                </div>
+              </div>
+              <Progress value={profileCompletion} className="h-2" />
+              <Link to="/dashboard/profile">
+                <Button variant="outline" size="sm" className="w-full mt-3">
+                  Complete Profile
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+
+            {/* Loan Application Status */}
             <div className="p-4 rounded-lg border bg-card">
               <div className="flex items-start justify-between mb-3">
                 <div>
-                  <p className="font-medium">Personal Loan Application</p>
+                  <p className="font-medium">Loan Application</p>
                   <p className="text-sm text-muted-foreground">Applied on 15 Sep 2025</p>
                 </div>
                 <Badge className="bg-success">Approved</Badge>
               </div>
               <div className="flex items-center justify-between text-sm mb-3">
-                <span className="text-muted-foreground">Loan ID: #NB2025001234</span>
+                <span className="text-muted-foreground">Application ID: #NB2025001234</span>
                 <span className="font-medium text-success">₹3,00,000</span>
               </div>
               <Progress value={100} className="h-2 mb-3" />
@@ -129,13 +150,13 @@ const Home = () => {
             <div className="p-4 rounded-lg border bg-card">
               <div className="flex items-start justify-between mb-3">
                 <div>
-                  <p className="font-medium">Microfinance Loan</p>
+                  <p className="font-medium">Loan Application</p>
                   <p className="text-sm text-muted-foreground">Applied on 28 Sep 2025</p>
                 </div>
                 <Badge variant="outline" className="bg-accent/10 text-accent border-accent">Under Review</Badge>
               </div>
               <div className="flex items-center justify-between text-sm mb-3">
-                <span className="text-muted-foreground">Loan ID: #NB2025001567</span>
+                <span className="text-muted-foreground">Application ID: #NB2025001567</span>
                 <span className="font-medium">₹2,00,000</span>
               </div>
               <Progress value={65} className="h-2" />
@@ -146,18 +167,6 @@ const Home = () => {
                 View All Applications
               </Button>
             </Link>
-
-            <div className="p-4 bg-primary/5 rounded-lg border border-primary/10">
-              <div className="flex items-start gap-3">
-                <Shield className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-                <div className="text-sm">
-                  <p className="font-medium mb-1">Profile Completion: {profileCompletion}%</p>
-                  <p className="text-muted-foreground text-xs">
-                    Complete remaining sections to unlock higher loan amounts
-                  </p>
-                </div>
-              </div>
-            </div>
           </CardContent>
         </Card>
       </div>

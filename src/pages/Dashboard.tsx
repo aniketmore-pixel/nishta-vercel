@@ -2,6 +2,7 @@ import { Outlet } from "react-router-dom";
 import { Header } from "@/components/Header";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
+import { HelpChatbot } from "@/components/HelpChatbot";
 
 const Dashboard = () => {
   return (
@@ -15,6 +16,7 @@ const Dashboard = () => {
           </main>
         </div>
       </SidebarProvider>
+      <HelpChatbot />
     </div>
   );
 };

@@ -19,7 +19,9 @@ import {
   FileText, 
   CreditCard,
   CheckCircle2,
-  Clock
+  Clock,
+  DollarSign,
+  AlertCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -74,12 +76,18 @@ const expensesSchema = z.object({
   remarks: z.string().optional(),
 });
 
+const loanApplicationSchema = z.object({
+  loanAmount: z.string().min(1, "Loan amount is required"),
+  purpose: z.string().min(10, "Please provide purpose (minimum 10 characters)"),
+});
+
 const profileSections = [
   { id: "basic", title: "Basic Details", icon: User, completed: false },
   { id: "income", title: "Income Details", icon: Wallet, completed: false },
   { id: "bank", title: "Bank Details", icon: CreditCard, completed: false },
   { id: "expenses", title: "Expenses & Commodities", icon: HomeIcon, completed: false },
   { id: "documents", title: "Submit Documents", icon: FileText, completed: false },
+  { id: "loan", title: "Apply for Loan", icon: DollarSign, completed: false },
 ];
 
 const Profile = () => {
@@ -118,6 +126,18 @@ const Profile = () => {
       commodities: [],
     },
   });
+
+  const loanForm = useForm<z.infer<typeof loanApplicationSchema>>({
+    resolver: zodResolver(loanApplicationSchema),
+    defaultValues: {
+      loanAmount: "",
+      purpose: "",
+    },
+  });
+
+  const [loanAmount, setLoanAmount] = useState(0);
+  const [showExpensesForLoan, setShowExpensesForLoan] = useState(false);
+  const LOAN_THRESHOLD = 100000; // ₹1 Lakh threshold
 
   const onBasicSubmit = (data: z.infer<typeof basicDetailsSchema>) => {
     console.log("Basic Details:", data);
@@ -170,6 +190,30 @@ const Profile = () => {
     toast({
       title: "Documents Submitted",
       description: "Your documents have been uploaded successfully.",
+    });
+  };
+
+  const onLoanSubmit = (data: z.infer<typeof loanApplicationSchema>) => {
+    console.log("Loan Application:", data);
+    const amount = parseFloat(data.loanAmount);
+    
+    if (amount > LOAN_THRESHOLD && !showExpensesForLoan) {
+      setLoanAmount(amount);
+      setShowExpensesForLoan(true);
+      toast({
+        title: "Additional Information Required",
+        description: `For loans above ₹${(LOAN_THRESHOLD / 1000).toFixed(0)}K, please fill expenses & commodities details below.`,
+        variant: "default",
+      });
+      return;
+    }
+
+    if (!completedSections.includes("loan")) {
+      setCompletedSections([...completedSections, "loan"]);
+    }
+    toast({
+      title: "Loan Application Submitted",
+      description: "Your loan application has been submitted for review.",
     });
   };
 
@@ -962,6 +1006,128 @@ const Profile = () => {
 
               <Button onClick={handleDocumentSubmit} className="w-full">Upload Documents</Button>
             </div>
+          )}
+
+          {/* Apply for Loan Form */}
+          {selectedSection === "loan" && (
+            <Form {...loanForm}>
+              <form onSubmit={loanForm.handleSubmit(onLoanSubmit)} className="space-y-6">
+                <div className="p-4 bg-primary/5 rounded-lg border border-primary/10">
+                  <p className="text-sm font-medium text-primary mb-2">💰 Loan Eligibility Calculator</p>
+                  <p className="text-xs text-muted-foreground">
+                    Enter your desired loan amount and purpose. For amounts above ₹1 Lakh, additional expense details will be required.
+                  </p>
+                </div>
+
+                <FormField
+                  control={loanForm.control}
+                  name="loanAmount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Desired Loan Amount (₹) *</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          placeholder="Enter amount (e.g., 50000)" 
+                          {...field}
+                          onChange={(e) => {
+                            field.onChange(e);
+                            const amount = parseFloat(e.target.value) || 0;
+                            setLoanAmount(amount);
+                          }}
+                        />
+                      </FormControl>
+                      <p className="text-xs text-muted-foreground">
+                        {loanAmount > LOAN_THRESHOLD ? (
+                          <span className="text-accent font-medium">
+                            ⚠️ Amount above ₹{(LOAN_THRESHOLD / 1000).toFixed(0)}K - Additional details required
+                          </span>
+                        ) : (
+                          <span className="text-success font-medium">
+                            ✓ Amount within basic eligibility
+                          </span>
+                        )}
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={loanForm.control}
+                  name="purpose"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Purpose of Loan *</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Describe how you will use this loan (e.g., business expansion, medical expenses, education)" 
+                          className="min-h-[100px]"
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Show expense form if amount > threshold */}
+                {showExpensesForLoan && loanAmount > LOAN_THRESHOLD && (
+                  <div className="space-y-6 p-6 border-2 border-accent rounded-lg bg-accent/5">
+                    <div className="flex items-center gap-2 text-accent">
+                      <AlertCircle className="h-5 w-5" />
+                      <h3 className="font-semibold">Additional Financial Information Required</h3>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Monthly Household Expenses (₹) *</Label>
+                        <Input type="number" placeholder="e.g., 15000" required />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Monthly Business Expenses (₹)</Label>
+                        <Input type="number" placeholder="e.g., 10000" />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Existing Loan Repayments (₹/month)</Label>
+                        <Input type="number" placeholder="e.g., 5000" />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Electricity Bill (₹/month)</Label>
+                        <Input type="number" placeholder="e.g., 1200" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Commodities Owned</Label>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {["TV", "Refrigerator", "Washing Machine", "Two-Wheeler", "Four-Wheeler", "Tractor"].map((item) => (
+                          <div key={item} className="flex items-center space-x-2">
+                            <Checkbox id={`loan-${item}`} />
+                            <label htmlFor={`loan-${item}`} className="text-sm cursor-pointer">
+                              {item}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="p-4 bg-muted rounded-lg">
+                  <p className="text-sm text-muted-foreground">
+                    💡 Tip: Make sure all previous profile sections are completed for faster loan approval.
+                  </p>
+                </div>
+
+                <Button type="submit" className="w-full" size="lg">
+                  Submit Loan Application
+                </Button>
+              </form>
+            </Form>
           )}
         </CardContent>
       </Card>

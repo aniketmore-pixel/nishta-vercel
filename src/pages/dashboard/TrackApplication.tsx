@@ -13,7 +13,6 @@ import {
 const applications = [
   {
     id: "#NB2025001234",
-    type: "Personal Loan",
     amount: "₹3,00,000",
     appliedDate: "15 Sep 2025",
     status: "Approved",
@@ -30,7 +29,6 @@ const applications = [
   },
   {
     id: "#NB2025001567",
-    type: "Microfinance Loan",
     amount: "₹2,00,000",
     appliedDate: "28 Sep 2025",
     status: "Under Review",
@@ -47,7 +45,6 @@ const applications = [
   },
   {
     id: "#NB2025000891",
-    type: "Term Loan",
     amount: "₹5,00,000",
     appliedDate: "10 Aug 2025",
     status: "Rejected",
@@ -79,7 +76,7 @@ const TrackApplication = () => {
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     <FileText className="h-5 w-5" />
-                    {app.type}
+                    Loan Application
                   </CardTitle>
                   <CardDescription className="mt-1">
                     Applied on {app.appliedDate} • Loan ID: {app.id}

@@ -104,6 +104,25 @@ const Profile = () => {
   const [billApiConnected, setBillApiConnected] = useState(false);
   const [verifyingAadhaar, setVerifyingAadhaar] = useState(false);
   
+  // File upload states
+  const [uploadedBills, setUploadedBills] = useState<{
+    electricity: { files: File[], verified: boolean, verifying: boolean }[];
+    mobile: { files: File[], verified: boolean, verifying: boolean }[];
+    other: { files: File[], verified: boolean, verifying: boolean }[];
+  }>({ electricity: [], mobile: [], other: [] });
+  
+  const [uploadedDocuments, setUploadedDocuments] = useState<{
+    [key: string]: { file: File | null, verified: boolean, verifying: boolean }
+  }>({
+    caste: { file: null, verified: false, verifying: false },
+    aadhaar: { file: null, verified: false, verifying: false },
+    pan: { file: null, verified: false, verifying: false },
+    address: { file: null, verified: false, verifying: false },
+    business: { file: null, verified: false, verifying: false },
+    signature: { file: null, verified: false, verifying: false },
+    selfie: { file: null, verified: false, verifying: false },
+  });
+  
   const completedCount = completedSections.length;
   const progressPercentage = (completedCount / profileSections.length) * 100;
 
@@ -237,6 +256,92 @@ const Profile = () => {
         description: "Your bill payment accounts have been linked.",
       });
     }, 1500);
+  };
+
+  const handleBillUpload = (type: 'electricity' | 'mobile' | 'other', files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    
+    const fileArray = Array.from(files);
+    const newBills = fileArray.map(file => ({
+      files: [file],
+      verified: false,
+      verifying: false
+    }));
+    
+    setUploadedBills(prev => ({
+      ...prev,
+      [type]: [...prev[type], ...newBills]
+    }));
+    
+    toast({
+      title: "Files Uploaded",
+      description: `${fileArray.length} file(s) uploaded. Click verify to authenticate.`,
+    });
+  };
+
+  const handleVerifyBills = (type: 'electricity' | 'mobile' | 'other') => {
+    const bills = uploadedBills[type];
+    if (bills.length === 0) {
+      toast({
+        title: "No Files to Verify",
+        description: "Please upload files first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Set verifying state
+    setUploadedBills(prev => ({
+      ...prev,
+      [type]: prev[type].map(bill => ({ ...bill, verifying: true }))
+    }));
+
+    // Simulate verification
+    setTimeout(() => {
+      setUploadedBills(prev => ({
+        ...prev,
+        [type]: prev[type].map(bill => ({ ...bill, verified: true, verifying: false }))
+      }));
+      
+      toast({
+        title: "Bills Verified Successfully",
+        description: `All ${type} bills have been verified and authenticated.`,
+      });
+    }, 2000);
+  };
+
+  const handleDocumentUpload = (docType: string, file: File | null) => {
+    if (!file) return;
+    
+    setUploadedDocuments(prev => ({
+      ...prev,
+      [docType]: { file, verified: false, verifying: false }
+    }));
+    
+    toast({
+      title: "Document Uploaded",
+      description: `${docType} document uploaded. Verifying...`,
+    });
+
+    // Auto-verify after upload
+    setTimeout(() => {
+      setUploadedDocuments(prev => ({
+        ...prev,
+        [docType]: { ...prev[docType], verifying: true }
+      }));
+
+      setTimeout(() => {
+        setUploadedDocuments(prev => ({
+          ...prev,
+          [docType]: { ...prev[docType], verified: true, verifying: false }
+        }));
+        
+        toast({
+          title: "Document Verified",
+          description: `${docType} document has been verified successfully.`,
+        });
+      }, 1500);
+    }, 500);
   };
 
   const onLoanSubmit = (data: z.infer<typeof loanApplicationSchema>) => {
@@ -944,29 +1049,147 @@ const Profile = () => {
                             Upload your recent utility bills for verification. This helps improve your credit score accuracy.
                           </p>
                           
-                          <div className="space-y-4">
-                            <div className="space-y-2">
+                          <div className="space-y-6">
+                            {/* Electricity Bills */}
+                            <div className="space-y-3">
                               <Label>Electricity Bills (Last 3 months)</Label>
-                              <Input type="file" accept=".pdf,.jpg,.jpeg,.png" multiple />
+                              <Input 
+                                type="file" 
+                                accept=".pdf,.jpg,.jpeg,.png" 
+                                multiple 
+                                onChange={(e) => handleBillUpload('electricity', e.target.files)}
+                              />
                               <p className="text-xs text-muted-foreground">Upload recent electricity bills</p>
+                              
+                              {uploadedBills.electricity.length > 0 && (
+                                <div className="space-y-2 mt-3">
+                                  {uploadedBills.electricity.map((bill, idx) => (
+                                    <div key={idx} className="flex items-center gap-2 p-3 bg-background rounded-lg border">
+                                      <FileText className="h-4 w-4 text-muted-foreground" />
+                                      <span className="text-sm flex-1">{bill.files[0]?.name}</span>
+                                      {bill.verifying ? (
+                                        <div className="flex items-center gap-2 text-primary">
+                                          <Clock className="h-4 w-4 animate-spin" />
+                                          <span className="text-xs">Verifying...</span>
+                                        </div>
+                                      ) : bill.verified ? (
+                                        <div className="flex items-center gap-1 text-success">
+                                          <CheckCircle2 className="h-4 w-4" />
+                                          <span className="text-xs font-medium">Verified</span>
+                                        </div>
+                                      ) : (
+                                        <span className="text-xs text-muted-foreground">Pending</span>
+                                      )}
+                                    </div>
+                                  ))}
+                                  {!uploadedBills.electricity.every(b => b.verified) && (
+                                    <Button 
+                                      type="button" 
+                                      size="sm" 
+                                      onClick={() => handleVerifyBills('electricity')}
+                                      disabled={uploadedBills.electricity.some(b => b.verifying)}
+                                    >
+                                      <Shield className="h-4 w-4 mr-2" />
+                                      Verify All Electricity Bills
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
                             </div>
 
-                            <div className="space-y-2">
+                            {/* Mobile Recharge Bills */}
+                            <div className="space-y-3">
                               <Label>Mobile Recharge Bills</Label>
-                              <Input type="file" accept=".pdf,.jpg,.jpeg,.png" multiple />
+                              <Input 
+                                type="file" 
+                                accept=".pdf,.jpg,.jpeg,.png" 
+                                multiple 
+                                onChange={(e) => handleBillUpload('mobile', e.target.files)}
+                              />
                               <p className="text-xs text-muted-foreground">Upload mobile recharge receipts</p>
+                              
+                              {uploadedBills.mobile.length > 0 && (
+                                <div className="space-y-2 mt-3">
+                                  {uploadedBills.mobile.map((bill, idx) => (
+                                    <div key={idx} className="flex items-center gap-2 p-3 bg-background rounded-lg border">
+                                      <FileText className="h-4 w-4 text-muted-foreground" />
+                                      <span className="text-sm flex-1">{bill.files[0]?.name}</span>
+                                      {bill.verifying ? (
+                                        <div className="flex items-center gap-2 text-primary">
+                                          <Clock className="h-4 w-4 animate-spin" />
+                                          <span className="text-xs">Verifying...</span>
+                                        </div>
+                                      ) : bill.verified ? (
+                                        <div className="flex items-center gap-1 text-success">
+                                          <CheckCircle2 className="h-4 w-4" />
+                                          <span className="text-xs font-medium">Verified</span>
+                                        </div>
+                                      ) : (
+                                        <span className="text-xs text-muted-foreground">Pending</span>
+                                      )}
+                                    </div>
+                                  ))}
+                                  {!uploadedBills.mobile.every(b => b.verified) && (
+                                    <Button 
+                                      type="button" 
+                                      size="sm" 
+                                      onClick={() => handleVerifyBills('mobile')}
+                                      disabled={uploadedBills.mobile.some(b => b.verifying)}
+                                    >
+                                      <Shield className="h-4 w-4 mr-2" />
+                                      Verify All Mobile Bills
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
                             </div>
 
-                            <div className="space-y-2">
+                            {/* Other Utility Bills */}
+                            <div className="space-y-3">
                               <Label>Water/Gas Bills (Optional)</Label>
-                              <Input type="file" accept=".pdf,.jpg,.jpeg,.png" multiple />
+                              <Input 
+                                type="file" 
+                                accept=".pdf,.jpg,.jpeg,.png" 
+                                multiple 
+                                onChange={(e) => handleBillUpload('other', e.target.files)}
+                              />
                               <p className="text-xs text-muted-foreground">Upload other utility bills</p>
+                              
+                              {uploadedBills.other.length > 0 && (
+                                <div className="space-y-2 mt-3">
+                                  {uploadedBills.other.map((bill, idx) => (
+                                    <div key={idx} className="flex items-center gap-2 p-3 bg-background rounded-lg border">
+                                      <FileText className="h-4 w-4 text-muted-foreground" />
+                                      <span className="text-sm flex-1">{bill.files[0]?.name}</span>
+                                      {bill.verifying ? (
+                                        <div className="flex items-center gap-2 text-primary">
+                                          <Clock className="h-4 w-4 animate-spin" />
+                                          <span className="text-xs">Verifying...</span>
+                                        </div>
+                                      ) : bill.verified ? (
+                                        <div className="flex items-center gap-1 text-success">
+                                          <CheckCircle2 className="h-4 w-4" />
+                                          <span className="text-xs font-medium">Verified</span>
+                                        </div>
+                                      ) : (
+                                        <span className="text-xs text-muted-foreground">Pending</span>
+                                      )}
+                                    </div>
+                                  ))}
+                                  {!uploadedBills.other.every(b => b.verified) && (
+                                    <Button 
+                                      type="button" 
+                                      size="sm" 
+                                      onClick={() => handleVerifyBills('other')}
+                                      disabled={uploadedBills.other.some(b => b.verifying)}
+                                    >
+                                      <Shield className="h-4 w-4 mr-2" />
+                                      Verify All Other Bills
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
                             </div>
-
-                            <Button type="button" variant="secondary" className="w-full">
-                              <CheckCircle2 className="h-4 w-4 mr-2" />
-                              Verify Uploaded Bills
-                            </Button>
                           </div>
                         </div>
                       </TabsContent>
@@ -1140,41 +1363,179 @@ const Profile = () => {
                 )}
               </div>
 
-              <div className="space-y-4">
-                <div className="space-y-2">
+              <div className="space-y-6">
+                {/* Caste Certificate */}
+                <div className="space-y-3">
                   <Label>Caste Certificate *</Label>
-                  <Input type="file" accept=".pdf,.jpg,.jpeg,.png" />
+                  <Input 
+                    type="file" 
+                    accept=".pdf,.jpg,.jpeg,.png" 
+                    onChange={(e) => e.target.files && handleDocumentUpload('caste', e.target.files[0])}
+                  />
                   <p className="text-xs text-muted-foreground">Required for eligibility verification</p>
+                  
+                  {uploadedDocuments.caste.file && (
+                    <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm flex-1">{uploadedDocuments.caste.file.name}</span>
+                      {uploadedDocuments.caste.verifying ? (
+                        <div className="flex items-center gap-2 text-primary">
+                          <Clock className="h-4 w-4 animate-spin" />
+                          <span className="text-xs">Verifying...</span>
+                        </div>
+                      ) : uploadedDocuments.caste.verified ? (
+                        <div className="flex items-center gap-1 text-success">
+                          <CheckCircle2 className="h-4 w-4" />
+                          <span className="text-xs font-medium">Verified</span>
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
 
-                <div className="space-y-2">
+                {/* PAN Card */}
+                <div className="space-y-3">
                   <Label>PAN Card (Optional)</Label>
-                  <Input type="file" accept=".pdf,.jpg,.jpeg,.png" />
+                  <Input 
+                    type="file" 
+                    accept=".pdf,.jpg,.jpeg,.png" 
+                    onChange={(e) => e.target.files && handleDocumentUpload('pan', e.target.files[0])}
+                  />
                   <p className="text-xs text-muted-foreground">Recommended for higher loan amounts</p>
+                  
+                  {uploadedDocuments.pan.file && (
+                    <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm flex-1">{uploadedDocuments.pan.file.name}</span>
+                      {uploadedDocuments.pan.verifying ? (
+                        <div className="flex items-center gap-2 text-primary">
+                          <Clock className="h-4 w-4 animate-spin" />
+                          <span className="text-xs">Verifying...</span>
+                        </div>
+                      ) : uploadedDocuments.pan.verified ? (
+                        <div className="flex items-center gap-1 text-success">
+                          <CheckCircle2 className="h-4 w-4" />
+                          <span className="text-xs font-medium">Verified</span>
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
 
-                <div className="space-y-2">
+                {/* Address Proof */}
+                <div className="space-y-3">
                   <Label>Address Proof (Optional)</Label>
-                  <Input type="file" accept=".pdf,.jpg,.jpeg,.png" />
+                  <Input 
+                    type="file" 
+                    accept=".pdf,.jpg,.jpeg,.png" 
+                    onChange={(e) => e.target.files && handleDocumentUpload('address', e.target.files[0])}
+                  />
                   <p className="text-xs text-muted-foreground">Electricity bill, ration card, or voter ID</p>
+                  
+                  {uploadedDocuments.address.file && (
+                    <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm flex-1">{uploadedDocuments.address.file.name}</span>
+                      {uploadedDocuments.address.verifying ? (
+                        <div className="flex items-center gap-2 text-primary">
+                          <Clock className="h-4 w-4 animate-spin" />
+                          <span className="text-xs">Verifying...</span>
+                        </div>
+                      ) : uploadedDocuments.address.verified ? (
+                        <div className="flex items-center gap-1 text-success">
+                          <CheckCircle2 className="h-4 w-4" />
+                          <span className="text-xs font-medium">Verified</span>
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
 
-                <div className="space-y-2">
+                {/* Business Proof */}
+                <div className="space-y-3">
                   <Label>Business Proof (Optional)</Label>
-                  <Input type="file" accept=".pdf,.jpg,.jpeg,.png" />
+                  <Input 
+                    type="file" 
+                    accept=".pdf,.jpg,.jpeg,.png" 
+                    onChange={(e) => e.target.files && handleDocumentUpload('business', e.target.files[0])}
+                  />
                   <p className="text-xs text-muted-foreground">Shop license, GST certificate, or business registration</p>
+                  
+                  {uploadedDocuments.business.file && (
+                    <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm flex-1">{uploadedDocuments.business.file.name}</span>
+                      {uploadedDocuments.business.verifying ? (
+                        <div className="flex items-center gap-2 text-primary">
+                          <Clock className="h-4 w-4 animate-spin" />
+                          <span className="text-xs">Verifying...</span>
+                        </div>
+                      ) : uploadedDocuments.business.verified ? (
+                        <div className="flex items-center gap-1 text-success">
+                          <CheckCircle2 className="h-4 w-4" />
+                          <span className="text-xs font-medium">Verified</span>
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
 
-                <div className="space-y-2">
+                {/* Signature */}
+                <div className="space-y-3">
                   <Label>Signature Upload *</Label>
-                  <Input type="file" accept=".jpg,.jpeg,.png" />
+                  <Input 
+                    type="file" 
+                    accept=".jpg,.jpeg,.png" 
+                    onChange={(e) => e.target.files && handleDocumentUpload('signature', e.target.files[0])}
+                  />
                   <p className="text-xs text-muted-foreground">Clear image of your signature on white paper</p>
+                  
+                  {uploadedDocuments.signature.file && (
+                    <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm flex-1">{uploadedDocuments.signature.file.name}</span>
+                      {uploadedDocuments.signature.verifying ? (
+                        <div className="flex items-center gap-2 text-primary">
+                          <Clock className="h-4 w-4 animate-spin" />
+                          <span className="text-xs">Verifying...</span>
+                        </div>
+                      ) : uploadedDocuments.signature.verified ? (
+                        <div className="flex items-center gap-1 text-success">
+                          <CheckCircle2 className="h-4 w-4" />
+                          <span className="text-xs font-medium">Verified</span>
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
 
-                <div className="space-y-2">
+                {/* Selfie */}
+                <div className="space-y-3">
                   <Label>Selfie for Verification (Optional)</Label>
-                  <Input type="file" accept=".jpg,.jpeg,.png" />
+                  <Input 
+                    type="file" 
+                    accept=".jpg,.jpeg,.png" 
+                    onChange={(e) => e.target.files && handleDocumentUpload('selfie', e.target.files[0])}
+                  />
                   <p className="text-xs text-muted-foreground">Recent photograph for identity verification</p>
+                  
+                  {uploadedDocuments.selfie.file && (
+                    <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm flex-1">{uploadedDocuments.selfie.file.name}</span>
+                      {uploadedDocuments.selfie.verifying ? (
+                        <div className="flex items-center gap-2 text-primary">
+                          <Clock className="h-4 w-4 animate-spin" />
+                          <span className="text-xs">Verifying...</span>
+                        </div>
+                      ) : uploadedDocuments.selfie.verified ? (
+                        <div className="flex items-center gap-1 text-success">
+                          <CheckCircle2 className="h-4 w-4" />
+                          <span className="text-xs font-medium">Verified</span>
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
               </div>
 

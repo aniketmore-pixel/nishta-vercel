@@ -21,10 +21,15 @@ import {
   CheckCircle2,
   Clock,
   DollarSign,
-  AlertCircle
+  AlertCircle,
+  Shield,
+  Link as LinkIcon,
+  Upload,
+  Zap
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Form Schemas
 const basicDetailsSchema = z.object({
@@ -94,6 +99,10 @@ const Profile = () => {
   const [selectedSection, setSelectedSection] = useState("basic");
   const [completedSections, setCompletedSections] = useState<string[]>([]);
   const { toast } = useToast();
+  const [aadhaarVerified, setAadhaarVerified] = useState(false);
+  const [digilockerConnected, setDigilockerConnected] = useState(false);
+  const [billApiConnected, setBillApiConnected] = useState(false);
+  const [verifyingAadhaar, setVerifyingAadhaar] = useState(false);
   
   const completedCount = completedSections.length;
   const progressPercentage = (completedCount / profileSections.length) * 100;
@@ -184,6 +193,15 @@ const Profile = () => {
   };
 
   const handleDocumentSubmit = () => {
+    if (!aadhaarVerified) {
+      toast({
+        title: "Aadhaar Verification Required",
+        description: "Please verify your Aadhaar card before submitting documents.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     if (!completedSections.includes("documents")) {
       setCompletedSections([...completedSections, "documents"]);
     }
@@ -191,6 +209,34 @@ const Profile = () => {
       title: "Documents Submitted",
       description: "Your documents have been uploaded successfully.",
     });
+  };
+
+  const handleAadhaarVerification = async (method: 'blockchain' | 'digilocker') => {
+    setVerifyingAadhaar(true);
+    
+    // Simulate verification process
+    setTimeout(() => {
+      setVerifyingAadhaar(false);
+      setAadhaarVerified(true);
+      if (method === 'digilocker') {
+        setDigilockerConnected(true);
+      }
+      toast({
+        title: "Aadhaar Verified Successfully",
+        description: `Your Aadhaar has been verified using ${method === 'blockchain' ? 'blockchain' : 'DigiLocker'}.`,
+      });
+    }, 2000);
+  };
+
+  const handleBillApiConnect = () => {
+    // Simulate API connection
+    setTimeout(() => {
+      setBillApiConnected(true);
+      toast({
+        title: "API Connected Successfully",
+        description: "Your bill payment accounts have been linked.",
+      });
+    }, 1500);
   };
 
   const onLoanSubmit = (data: z.infer<typeof loanApplicationSchema>) => {
@@ -778,15 +824,45 @@ const Profile = () => {
 
           {/* Expenses & Commodities Form */}
           {selectedSection === "expenses" && (
-            <Form {...expensesForm}>
-              <form onSubmit={expensesForm.handleSubmit(onExpensesSubmit)} className="space-y-6">
-                <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-6">
+              <Form {...expensesForm}>
+                <form onSubmit={expensesForm.handleSubmit(onExpensesSubmit)} className="space-y-6">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <FormField
+                      control={expensesForm.control}
+                      name="monthlyHouseholdExpenses"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Monthly Household Expenses (₹) *</FormLabel>
+                          <FormControl>
+                            <Input type="number" placeholder="Enter amount" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={expensesForm.control}
+                      name="monthlyBusinessExpenses"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Monthly Business Expenses (₹)</FormLabel>
+                          <FormControl>
+                            <Input type="number" placeholder="Enter amount" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
                   <FormField
                     control={expensesForm.control}
-                    name="monthlyHouseholdExpenses"
+                    name="monthlyLoanRepayments"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Monthly Household Expenses (₹) *</FormLabel>
+                        <FormLabel>Monthly Loan Repayments (₹) (if any)</FormLabel>
                         <FormControl>
                           <Input type="number" placeholder="Enter amount" {...field} />
                         </FormControl>
@@ -797,170 +873,278 @@ const Profile = () => {
 
                   <FormField
                     control={expensesForm.control}
-                    name="monthlyBusinessExpenses"
-                    render={({ field }) => (
+                    name="commodities"
+                    render={() => (
                       <FormItem>
-                        <FormLabel>Monthly Business Expenses (₹)</FormLabel>
-                        <FormControl>
-                          <Input type="number" placeholder="Enter amount" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <FormField
-                  control={expensesForm.control}
-                  name="monthlyLoanRepayments"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Monthly Loan Repayments (₹) (if any)</FormLabel>
-                      <FormControl>
-                        <Input type="number" placeholder="Enter amount" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid md:grid-cols-3 gap-4">
-                  <FormField
-                    control={expensesForm.control}
-                    name="electricityBill"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Electricity Bill (₹/month)</FormLabel>
-                        <FormControl>
-                          <Input type="number" placeholder="Amount" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={expensesForm.control}
-                    name="mobileRecharge"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Mobile Recharge (₹/month)</FormLabel>
-                        <FormControl>
-                          <Input type="number" placeholder="Amount" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={expensesForm.control}
-                    name="otherUtilities"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Other Utilities (₹/month)</FormLabel>
-                        <FormControl>
-                          <Input type="number" placeholder="Amount" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <FormField
-                  control={expensesForm.control}
-                  name="commodities"
-                  render={() => (
-                    <FormItem>
-                      <div className="mb-4">
-                        <FormLabel>Commodities Owned (Optional)</FormLabel>
-                      </div>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        {["TV", "Refrigerator", "Washing Machine", "Vehicle", "Tractor", "Smartphone"].map((item) => (
-                          <FormField
-                            key={item}
-                            control={expensesForm.control}
-                            name="commodities"
-                            render={({ field }) => {
-                              return (
-                                <FormItem
-                                  key={item}
-                                  className="flex flex-row items-start space-x-3 space-y-0"
-                                >
-                                  <FormControl>
-                                    <Checkbox
-                                      checked={field.value?.includes(item)}
-                                      onCheckedChange={(checked) => {
-                                        return checked
-                                          ? field.onChange([...field.value || [], item])
-                                          : field.onChange(
-                                              field.value?.filter(
-                                                (value) => value !== item
+                        <div className="mb-4">
+                          <FormLabel>Commodities Owned (Optional)</FormLabel>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                          {["TV", "Refrigerator", "Washing Machine", "Vehicle", "Tractor", "Smartphone"].map((item) => (
+                            <FormField
+                              key={item}
+                              control={expensesForm.control}
+                              name="commodities"
+                              render={({ field }) => {
+                                return (
+                                  <FormItem
+                                    key={item}
+                                    className="flex flex-row items-start space-x-3 space-y-0"
+                                  >
+                                    <FormControl>
+                                      <Checkbox
+                                        checked={field.value?.includes(item)}
+                                        onCheckedChange={(checked) => {
+                                          return checked
+                                            ? field.onChange([...field.value || [], item])
+                                            : field.onChange(
+                                                field.value?.filter(
+                                                  (value) => value !== item
+                                                )
                                               )
-                                            )
-                                      }}
-                                    />
-                                  </FormControl>
-                                  <FormLabel className="font-normal">
-                                    {item}
-                                  </FormLabel>
-                                </FormItem>
-                              )
-                            }}
-                          />
-                        ))}
-                      </div>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                                        }}
+                                      />
+                                    </FormControl>
+                                    <FormLabel className="font-normal">
+                                      {item}
+                                    </FormLabel>
+                                  </FormItem>
+                                )
+                              }}
+                            />
+                          ))}
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <div className="space-y-2">
-                  <Label>Upload Last 3 Utility Bills (Optional)</Label>
-                  <Input type="file" accept=".pdf,.jpg,.jpeg,.png" multiple />
-                  <p className="text-xs text-muted-foreground">Upload electricity, water, or gas bills</p>
-                </div>
+                  {/* Bill Submission Options */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                      <Zap className="h-5 w-5 text-primary" />
+                      Utility Bill Verification
+                    </h3>
+                    
+                    <Tabs defaultValue="upload" className="w-full">
+                      <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="upload">
+                          <Upload className="h-4 w-4 mr-2" />
+                          Upload Bills
+                        </TabsTrigger>
+                        <TabsTrigger value="api">
+                          <LinkIcon className="h-4 w-4 mr-2" />
+                          Connect via API
+                        </TabsTrigger>
+                      </TabsList>
+                      
+                      <TabsContent value="upload" className="space-y-4">
+                        <div className="p-4 bg-muted rounded-lg">
+                          <p className="text-sm text-muted-foreground mb-4">
+                            Upload your recent utility bills for verification. This helps improve your credit score accuracy.
+                          </p>
+                          
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <Label>Electricity Bills (Last 3 months)</Label>
+                              <Input type="file" accept=".pdf,.jpg,.jpeg,.png" multiple />
+                              <p className="text-xs text-muted-foreground">Upload recent electricity bills</p>
+                            </div>
 
-                <FormField
-                  control={expensesForm.control}
-                  name="remarks"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Remarks (Optional)</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Any additional information" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                            <div className="space-y-2">
+                              <Label>Mobile Recharge Bills</Label>
+                              <Input type="file" accept=".pdf,.jpg,.jpeg,.png" multiple />
+                              <p className="text-xs text-muted-foreground">Upload mobile recharge receipts</p>
+                            </div>
 
-                <div className="p-4 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground">
-                    💡 Tip: This data helps us calculate your Income vs Expense Ratio for accurate credit assessment.
-                  </p>
-                </div>
+                            <div className="space-y-2">
+                              <Label>Water/Gas Bills (Optional)</Label>
+                              <Input type="file" accept=".pdf,.jpg,.jpeg,.png" multiple />
+                              <p className="text-xs text-muted-foreground">Upload other utility bills</p>
+                            </div>
 
-                <Button type="submit" className="w-full">Save Expense Details</Button>
-              </form>
-            </Form>
+                            <Button type="button" variant="secondary" className="w-full">
+                              <CheckCircle2 className="h-4 w-4 mr-2" />
+                              Verify Uploaded Bills
+                            </Button>
+                          </div>
+                        </div>
+                      </TabsContent>
+                      
+                      <TabsContent value="api" className="space-y-4">
+                        <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
+                          <div className="flex items-start gap-3 mb-4">
+                            <LinkIcon className="h-5 w-5 text-primary mt-0.5" />
+                            <div>
+                              <h4 className="font-semibold text-primary mb-1">Connect Your Accounts</h4>
+                              <p className="text-sm text-muted-foreground">
+                                Give us secure access to automatically fetch your bill payment history. 
+                                This is faster and more accurate than manual uploads.
+                              </p>
+                            </div>
+                          </div>
+
+                          {billApiConnected ? (
+                            <div className="p-4 bg-success/10 border border-success rounded-lg">
+                              <div className="flex items-center gap-2 text-success mb-2">
+                                <CheckCircle2 className="h-5 w-5" />
+                                <span className="font-semibold">Connected Successfully</span>
+                              </div>
+                              <p className="text-sm text-muted-foreground">
+                                We're now able to fetch your bill payment data automatically.
+                              </p>
+                              <Button 
+                                type="button" 
+                                variant="outline" 
+                                size="sm" 
+                                className="mt-3"
+                                onClick={() => setBillApiConnected(false)}
+                              >
+                                Disconnect
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="space-y-4">
+                              <div className="flex items-start space-x-3 p-3 rounded-md border">
+                                <Checkbox id="api-consent" />
+                                <div className="space-y-1 leading-none">
+                                  <label htmlFor="api-consent" className="text-sm font-medium cursor-pointer">
+                                    I authorize secure access to my utility bill accounts
+                                  </label>
+                                  <p className="text-xs text-muted-foreground">
+                                    Your data is encrypted and will only be used for credit assessment
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="grid gap-3">
+                                <Button 
+                                  type="button" 
+                                  variant="outline" 
+                                  className="w-full justify-start"
+                                  onClick={handleBillApiConnect}
+                                >
+                                  <Zap className="h-4 w-4 mr-2" />
+                                  Connect Electricity Provider
+                                </Button>
+                                
+                                <Button 
+                                  type="button" 
+                                  variant="outline" 
+                                  className="w-full justify-start"
+                                  onClick={handleBillApiConnect}
+                                >
+                                  <LinkIcon className="h-4 w-4 mr-2" />
+                                  Connect Mobile Operator
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </TabsContent>
+                    </Tabs>
+                  </div>
+
+                  <FormField
+                    control={expensesForm.control}
+                    name="remarks"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Remarks (Optional)</FormLabel>
+                        <FormControl>
+                          <Textarea placeholder="Any additional information" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="p-4 bg-muted rounded-lg">
+                    <p className="text-sm text-muted-foreground">
+                      💡 Tip: This data helps us calculate your Income vs Expense Ratio for accurate credit assessment.
+                    </p>
+                  </div>
+
+                  <Button type="submit" className="w-full">Save Expense Details</Button>
+                </form>
+              </Form>
+            </div>
           )}
 
           {/* Submit Documents Form */}
           {selectedSection === "documents" && (
             <div className="space-y-6">
+              {/* Aadhaar Verification Section */}
+              <div className="p-6 bg-primary/5 border-2 border-primary/20 rounded-lg">
+                <div className="flex items-start gap-3 mb-4">
+                  <Shield className="h-6 w-6 text-primary mt-0.5" />
+                  <div>
+                    <h3 className="text-lg font-semibold text-primary mb-1">Aadhaar Verification</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Verify your Aadhaar card using secure blockchain technology or DigiLocker
+                    </p>
+                  </div>
+                </div>
+
+                {aadhaarVerified ? (
+                  <div className="p-4 bg-success/10 border border-success rounded-lg">
+                    <div className="flex items-center gap-2 text-success mb-2">
+                      <CheckCircle2 className="h-5 w-5" />
+                      <span className="font-semibold">Aadhaar Verified Successfully</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Your Aadhaar has been verified and authenticated.
+                      {digilockerConnected && " DigiLocker connected."}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Aadhaar Number *</Label>
+                      <Input 
+                        type="text" 
+                        placeholder="Enter 12-digit Aadhaar number" 
+                        maxLength={12}
+                      />
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-3">
+                      <Button 
+                        type="button" 
+                        variant="default"
+                        onClick={() => handleAadhaarVerification('blockchain')}
+                        disabled={verifyingAadhaar}
+                      >
+                        <Shield className="h-4 w-4 mr-2" />
+                        {verifyingAadhaar ? "Verifying..." : "Verify via Blockchain"}
+                      </Button>
+                      
+                      <Button 
+                        type="button" 
+                        variant="secondary"
+                        onClick={() => handleAadhaarVerification('digilocker')}
+                        disabled={verifyingAadhaar}
+                      >
+                        <LinkIcon className="h-4 w-4 mr-2" />
+                        {verifyingAadhaar ? "Connecting..." : "Connect DigiLocker"}
+                      </Button>
+                    </div>
+
+                    <div className="p-3 bg-muted rounded-lg">
+                      <p className="text-xs text-muted-foreground">
+                        <strong>Blockchain Verification:</strong> Uses decentralized technology for instant, secure verification.<br />
+                        <strong>DigiLocker:</strong> Connect your DigiLocker account to fetch verified documents automatically.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label>Caste Certificate *</Label>
                   <Input type="file" accept=".pdf,.jpg,.jpeg,.png" />
                   <p className="text-xs text-muted-foreground">Required for eligibility verification</p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Aadhaar Card *</Label>
-                  <Input type="file" accept=".pdf,.jpg,.jpeg,.png" />
-                  <p className="text-xs text-muted-foreground">Required for identity verification</p>
                 </div>
 
                 <div className="space-y-2">

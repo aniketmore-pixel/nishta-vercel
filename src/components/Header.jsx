@@ -1,10 +1,24 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Menu, Globe } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export const Header = () => {
   const [language, setLanguage] = useState("English");
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Check if token exists in localStorage
+    const token = localStorage.getItem("token");
+    setIsLoggedIn(!!token);
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("token"); // Clear session data
+    setIsLoggedIn(false);
+    navigate("/login"); // Redirect to login page
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -46,12 +60,20 @@ export const Header = () => {
             </Button>
 
             <div className="hidden md:flex items-center gap-2">
-              <Link to="/login">
-                <Button variant="outline" size="sm">Login</Button>
-              </Link>
-              <Link to="/signup">
-                <Button size="sm">Register</Button>
-              </Link>
+              {isLoggedIn ? (
+                <Button variant="outline" size="sm" onClick={handleLogout}>
+                  Logout
+                </Button>
+              ) : (
+                <>
+                  <Link to="/login">
+                    <Button variant="outline" size="sm">Login</Button>
+                  </Link>
+                  <Link to="/signup">
+                    <Button size="sm">Register</Button>
+                  </Link>
+                </>
+              )}
             </div>
 
             {/* Mobile Menu Button */}

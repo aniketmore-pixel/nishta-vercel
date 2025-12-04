@@ -10,8 +10,7 @@ import { Footer } from "@/components/Footer";
 import { Lock, User } from "lucide-react";
 
 const Login = () => {
-  // --- Form state ---
-  const [aadhaar, setAadhaar] = useState("");
+  const [aadhaar, setAadhaar] = useState(""); // string
   const [password, setPassword] = useState("");
   const [otp, setOtp] = useState("");
   const [step, setStep] = useState(1); // 1 = login, 2 = OTP
@@ -29,12 +28,20 @@ const Login = () => {
 
     try {
       const res = await axios.post("http://localhost:5000/api/auth/login", {
-        aadhar_no: aadhaar,
+        aadhar_no: aadhaar.toString(), // ensure string
         password: password,
       });
 
       if (res.data.message === "OTP sent to registered mobile number") {
         setStep(2);
+
+        // Store JWT if backend returns it
+        if (res.data.token) {
+          // Save aadhar as string
+          localStorage.setItem("aadhar_no", aadhaar.toString());
+          localStorage.setItem("token", res.data.token);
+        }
+
         alert("OTP sent to your registered mobile number.");
       } else {
         setError(res.data.error || "Login failed");
@@ -56,14 +63,17 @@ const Login = () => {
 
     try {
       const res = await axios.post("http://localhost:5000/api/auth/verify-otp", {
-        aadhar_no: aadhaar,
+        aadhar_no: aadhaar.toString(), // ensure string
         otp: otp,
       });
 
       if (res.data.message === "Login successful") {
-        alert("Login successful!");
-        localStorage.setItem("token", res.data.token); // save JWT
-        window.location.href = "/dashboard"; // redirect to dashboard
+        // Save JWT from OTP verification (optional override)
+        if (res.data.token) {
+          localStorage.setItem("token", res.data.token);
+        }
+
+        window.location.href = "/dashboard";
       } else {
         setError(res.data.error || "OTP verification failed");
       }
@@ -75,7 +85,6 @@ const Login = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-
       <div className="flex-1 bg-muted/30 flex items-center justify-center py-12">
         <div className="container mx-auto px-4">
           <div className="max-w-md mx-auto">
@@ -95,8 +104,7 @@ const Login = () => {
                     <>
                       <div className="space-y-2">
                         <Label htmlFor="aadhaar" className="flex items-center gap-2">
-                          <User className="h-4 w-4" />
-                          Aadhaar Number
+                          <User className="h-4 w-4" /> Aadhaar Number
                         </Label>
                         <Input
                           id="aadhaar"
@@ -110,8 +118,7 @@ const Login = () => {
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
                           <Label htmlFor="password" className="flex items-center gap-2">
-                            <Lock className="h-4 w-4" />
-                            Password
+                            <Lock className="h-4 w-4" /> Password
                           </Label>
                           <Link
                             to="/forgot-password"
@@ -154,46 +161,12 @@ const Login = () => {
                   )}
 
                   {error && <p className="text-red-500 text-sm">{error}</p>}
-
-                  {step === 1 && (
-                    <>
-                      <div className="relative">
-                        <div className="absolute inset-0 flex items-center">
-                          <span className="w-full border-t" />
-                        </div>
-                        <div className="relative flex justify-center text-xs uppercase">
-                          <span className="bg-card px-2 text-muted-foreground">
-                            New to NBCFDC?
-                          </span>
-                        </div>
-                      </div>
-
-                      <Link to="/signup">
-                        <Button variant="outline" className="w-full">
-                          Create New Account
-                        </Button>
-                      </Link>
-                    </>
-                  )}
                 </form>
-
-                <div className="mt-6 p-4 bg-muted/50 rounded-lg">
-                  <p className="text-sm text-center text-muted-foreground">
-                    For assistance, call our toll-free helpline
-                    <br />
-                    <span className="font-semibold text-primary">1800-XXX-XXXX</span>
-                  </p>
-                </div>
               </CardContent>
             </Card>
-
-            <p className="text-center text-xs text-muted-foreground mt-4">
-              This is a secure government portal. Your data is protected.
-            </p>
           </div>
         </div>
       </div>
-
       <Footer />
     </div>
   );

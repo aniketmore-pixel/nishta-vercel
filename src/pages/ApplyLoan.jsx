@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "react-router-dom"; // ⬅️ NEW
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -39,17 +40,14 @@ const useToast = () => ({
 });
 
 // Zod schemas (Basic Details schema removed)
-// The original basicDetailsSchema is commented out/removed as per request.
 
 const incomeDetailsSchema = z.object({
   employmentType: z.enum(["Self-employed", "Salaried", "Labour", "Unemployed"]),
   primaryIncomeSource: z.string().min(2, "This field is required"),
   monthlyIncome: z.string().min(1, "Monthly income is required"),
   secondaryIncome: z.string().optional(),
-  householdMembers: z.string().min(1, "This field is required"),
+  householdMembers: z.string().optional(), // made optional since you weren't using it in the form
 });
-
-
 
 const bankDetailsSchema = z.object({
   accountHolderName: z.string().min(2, "Account holder name is required"),
@@ -66,7 +64,7 @@ const bankDetailsSchema = z.object({
 });
 
 const expensesSchema = z.object({
-  monthlyHouseholdExpenses: z.string().min(1, "This field is required"),
+  monthlyHouseholdExpenses: z.string().optional(),
   monthlyBusinessExpenses: z.string().optional(),
   monthlyLoanRepayments: z.string().optional(),
   electricityBill: z.string().optional(),
@@ -96,20 +94,25 @@ const enrolledSchemesSchema = z.object({
   }),
 });
 
-
-
 // Modified profile sections (Basic Details removed)
 const profileSections = [
   { id: "income", title: "Income & Asset Details", icon: Wallet, completed: false },
   { id: "bank", title: "Bank Details", icon: CreditCard, completed: false },
   { id: "expenses", title: "Expenses & Commodities", icon: HomeIcon, completed: false },
   { id: "House Hold and Ration Card Detail", title: "House Hold and Ration Card Detail", icon: FileText, completed: false },
+  { id: "schemes", title: "Enrolled Schemes", icon: FileText, completed: false },
   { id: "loan", title: "Apply for Loan", icon: DollarSign, completed: false },
- // ⭐ NEW SECTION ADDED HERE
-   { id: "schemes", title: "Enrolled Schemes", icon: FileText, completed: false }, // NEW
 ];
 
 const ApplyLoan = () => {
+  const location = useLocation(); // ⬅️ read current URL
+  const searchParams = new URLSearchParams(location.search);
+  const selectedSchemeName = searchParams.get("scheme"); // e.g. "Term Loan – General Loan Scheme"
+
+  const pageTitle = selectedSchemeName
+    ? `Complete Your Profile for ${selectedSchemeName} 🚀`
+    : "Complete Your Profile 🚀";
+
   // Start on the first remaining section
   const [selectedSection, setSelectedSection] = useState("income");
   const [completedSections, setCompletedSections] = useState([]);
@@ -139,7 +142,6 @@ const ApplyLoan = () => {
     score: ""
   });
 
-
   const [uploadedBills, setUploadedBills] = useState({
     electricity: [],
     mobile: [],
@@ -160,8 +162,6 @@ const ApplyLoan = () => {
   const progressPercentage = (completedCount / profileSections.length) * 100;
 
   // forms
-  // basicForm removed
-
   const incomeForm = useForm({
     resolver: zodResolver(incomeDetailsSchema),
     defaultValues: {
@@ -191,39 +191,37 @@ const ApplyLoan = () => {
     },
   });
 
- const enrolledSchemesForm = useForm({
-  resolver: zodResolver(enrolledSchemesSchema),
-  defaultValues: {
-    enrolledMgnrega: "",
-    enrolledPmUjjwala: "",
-    enrolledPmJay: "",
-    enrolledPensionScheme: "",
-  },
-});
+  const enrolledSchemesForm = useForm({
+    resolver: zodResolver(enrolledSchemesSchema),
+    defaultValues: {
+      enrolledMgnrega: "",
+      enrolledPmUjjwala: "",
+      enrolledPmJay: "",
+      enrolledPensionScheme: "",
+    },
+  });
 
-
-
-const onEnrolledSchemesSubmit = (values) => {
-  console.log("Enrolled schemes data:", values);
-  // TODO: call your backend API here
-};
-
-
-
-
-  
+  const onEnrolledSchemesSubmit = (values) => {
+    console.log("Enrolled schemes data:", values);
+    // TODO: call your backend API here
+    if (!completedSections.includes("schemes")) {
+      setCompletedSections([...completedSections, "schemes"]);
+    }
+    toast({
+      title: "Enrolled Schemes Saved",
+      description: "Your enrolled schemes information has been saved.",
+      variant: "success",
+    });
+  };
 
   const [loanAmount, setLoanAmount] = useState(0);
   const [showExpensesForLoan, setShowExpensesForLoan] = useState(false);
   const LOAN_THRESHOLD = 100000; // ₹1 Lakh
 
-  // handlers (onBasicSubmit removed)
-  // const onBasicSubmit = (data) => { /* ... removed */ };
-
   const onIncomeSubmit = (data) => {
     console.log("Income Income & Asset Details:", data);
     if (!completedSections.includes("income")) setCompletedSections([...completedSections, "income"]);
-    toast({ title: "Income Income & Asset Details Saved", description: "Your income information has been saved successfully.", variant: "success" });
+    toast({ title: "Income & Asset Details Saved", description: "Your income information has been saved successfully.", variant: "success" });
   };
 
   const onBankSubmit = (data) => {
@@ -266,7 +264,6 @@ const onEnrolledSchemesSubmit = (values) => {
 
       const data = await res.json();
 
-      // You expect: data.verifiedBills = [true, true, true]
       setUploadedBills((prev) => ({
         ...prev,
         electricity: prev.electricity.map((b, idx) => ({
@@ -289,70 +286,28 @@ const onEnrolledSchemesSubmit = (values) => {
     }
   };
 
-
-  // const handleAadhaarVerification = async (method) => {
-  //   setVerifyingAadhaar(true);
-  //   setTimeout(() => {
-  //     setVerifyingAadhaar(false);
-  //     setAadhaarVerified(true);
-  //     if (method === "digilocker") setDigilockerConnected(true);
-  //     toast({ title: "Aadhaar Verified Successfully", description: `Your Aadhaar has been verified using ${method === "blockchain" ? "blockchain" : "DigiLocker"}.`, variant: "success" });
-  //   }, 2000);
-  // };
-
-  // const handleBillApiConnect = () => {
-  //   setTimeout(() => {
-  //     setBillApiConnected(true);
-  //     toast({ title: "API Connected Successfully", description: "Your bill payment accounts have been linked.", variant: "success" });
-  //   }, 1500);
-  // };
-
-  // const handleBillUpload = (type, files) => {
-  //   if (!files || files.length === 0) return;
-  //   const fileArray = Array.from(files);
-  //   const newBills = fileArray.map((file) => ({ files: [file], verified: false, verifying: false }));
-  //   setUploadedBills((prev) => ({ ...prev, [type]: [...prev[type], ...newBills] }));
-  //   toast({ title: "Files Uploaded", description: `${fileArray.length} file(s) uploaded. Click verify to authenticate.` });
-  // };
-
-  // const handleVerifyBills = (type) => {
-  //   const bills = uploadedBills[type];
-  //   if (bills.length === 0) {
-  //     toast({ title: "No Files to Verify", description: "Please upload files first.", variant: "destructive" });
-  //     return;
-  //   }
-  //   setUploadedBills((prev) => ({ ...prev, [type]: prev[type].map((bill) => ({ ...bill, verifying: true })) }));
-  //   setTimeout(() => {
-  //     setUploadedBills((prev) => ({ ...prev, [type]: prev[type].map((bill) => ({ ...bill, verified: true, verifying: false })) }));
-  //     toast({ title: "Bills Verified Successfully", description: `All ${type} bills have been verified and authenticated.`, variant: "success" });
-  //   }, 2000);
-  // };
-
-  // const handleDocumentUpload = (docType, file) => {
-  //   if (!file) return;
-  //   setUploadedDocuments((prev) => ({ ...prev, [docType]: { file, verified: false, verifying: true } }));
-  //   setTimeout(() => {
-  //     setUploadedDocuments((prev) => ({ ...prev, [docType]: { ...prev[docType], verified: true, verifying: false } }));
-  //     toast({ title: "Document Verified", description: `${docType} document has been verified successfully.`, variant: "success" });
-  //   }, 2000);
-  // };
-
   const onLoanSubmit = (data) => {
     console.log("Loan Application:", data);
     const amount = parseFloat(data.loanAmount);
     if (amount > LOAN_THRESHOLD && !showExpensesForLoan) {
       setLoanAmount(amount);
       setShowExpensesForLoan(true);
-      toast({ title: "Additional Information Required", description: `For loans above ₹${(LOAN_THRESHOLD / 1000).toFixed(0)}K, please fill expenses & commodities details below.`, variant: "default" });
+      toast({
+        title: "Additional Information Required",
+        description: `For loans above ₹${(LOAN_THRESHOLD / 1000).toFixed(0)}K, please fill expenses & commodities details below.`,
+        variant: "default"
+      });
       return;
     }
     if (!completedSections.includes("loan")) setCompletedSections([...completedSections, "loan"]);
-    toast({ title: "Loan Application Submitted", description: "Your loan application has been submitted for review. Processing will begin shortly.", variant: "success" });
+    toast({
+      title: "Loan Application Submitted",
+      description: "Your loan application has been submitted for review. Processing will begin shortly.",
+      variant: "success"
+    });
   };
 
   const handleFetchRationDetails = () => {
-
-    // Validation
     if (rationNumber.length !== 10) {
       setRationError("Ration Card Number must be exactly 10 digits.");
       return;
@@ -361,7 +316,6 @@ const onEnrolledSchemesSubmit = (values) => {
     setRationError("");
     setFetchingRation(true);
 
-    // Simulated API call
     setTimeout(() => {
       setRationDetails({
         householdSize: 5,
@@ -390,20 +344,30 @@ const onEnrolledSchemesSubmit = (values) => {
     }, 1500);
   };
 
-
-
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl pt-20">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-primary mb-2">Complete Your Profile 🚀</h1>
-        <p className="text-muted-foreground">Fill all sections to maximize your credit score and loan eligibility</p>
+        <h1 className="text-3xl font-bold text-primary mb-1">{pageTitle}</h1>
+        <p className="text-muted-foreground">
+          {selectedSchemeName
+            ? `You’re applying under the "${selectedSchemeName}" scheme. Please complete all sections to help us assess your eligibility smoothly.`
+            : "Fill all sections to maximize your credit score and loan eligibility."}
+        </p>
+
+        {selectedSchemeName && (
+          <p className="mt-2 text-sm text-primary/80">
+            Selected Scheme: <span className="font-semibold">{selectedSchemeName}</span>
+          </p>
+        )}
       </div>
 
       <Card className="shadow-lg mb-8">
         <CardContent className="pt-6">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium">Profile Completeness</span>
-            <span className="text-sm font-bold text-primary">{progressPercentage.toFixed(0)}%</span>
+            <span className="text-sm font-bold text-primary">
+              {progressPercentage.toFixed(0)}%
+            </span>
           </div>
           <Progress value={progressPercentage} className="h-3 bg-gray-200" />
         </CardContent>
@@ -417,250 +381,311 @@ const onEnrolledSchemesSubmit = (values) => {
               onClick={() => setSelectedSection(section.id)}
               className={cn(
                 "flex items-center gap-3 p-3 rounded-lg transition-all text-left w-full hover:bg-muted/50",
-                selectedSection === section.id ? "bg-primary/10 text-primary border-r-4 border-primary font-semibold" : "text-muted-foreground"
+                selectedSection === section.id
+                  ? "bg-primary/10 text-primary border-r-4 border-primary font-semibold"
+                  : "text-muted-foreground"
               )}
             >
-              <section.icon className={cn("h-5 w-5", completedSections.includes(section.id) && "text-success")} />
+              <section.icon
+                className={cn(
+                  "h-5 w-5",
+                  completedSections.includes(section.id) && "text-success"
+                )}
+              />
               <span className="text-sm flex-1">{section.title}</span>
-              {completedSections.includes(section.id) && <CheckCircle2 className="h-4 w-4 text-success" />}
+              {completedSections.includes(section.id) && (
+                <CheckCircle2 className="h-4 w-4 text-success" />
+              )}
             </button>
           ))}
         </div>
 
         <Card className="shadow-lg min-h-[500px]">
           <CardHeader className="border-b">
-            <CardTitle>{profileSections.find(s => s.id === selectedSection)?.title}</CardTitle>
-            <CardDescription>Complete this section to improve your loan eligibility</CardDescription>
+            <CardTitle>
+              {profileSections.find((s) => s.id === selectedSection)?.title}
+            </CardTitle>
+            <CardDescription>
+              Complete this section to improve your loan eligibility.
+            </CardDescription>
           </CardHeader>
 
           <CardContent className="py-6 max-h-[calc(600px)] overflow-y-auto">
-
-            {/* BASIC SECTION (removed) */}
-
-           {/* INCOME SECTION */}
-{selectedSection === "income" && (
-  <Form {...incomeForm}>
-    <form
-      onSubmit={incomeForm.handleSubmit(onIncomeSubmit)}
-      className="space-y-6"
-    >
-      {/* Occupation */}
-      <FormField
-        control={incomeForm.control}
-        name="employmentType"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Occupation *</FormLabel>
-            <Select
-              onValueChange={field.onChange}
-              defaultValue={field.value}
-            >
-              <FormControl>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select employment type" />
-                </SelectTrigger>
-              </FormControl>
-              <SelectContent>
-                <SelectItem value="Self-employed">Self-employed</SelectItem>
-                <SelectItem value="Salaried">Salaried</SelectItem>
-                <SelectItem value="Labour">Labour</SelectItem>
-                <SelectItem value="Unemployed">Unemployed</SelectItem>
-              </SelectContent>
-            </Select>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-
-      {/* Primary Income Source */}
-      <FormField
-        control={incomeForm.control}
-        name="primaryIncomeSource"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Primary Income Source *</FormLabel>
-            <FormControl>
-              <Input
-                placeholder="e.g., Small Business, Daily Wage"
-                {...field}
-              />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-
-      {/* Monthly & Annual Income */}
-      <div className="grid md:grid-cols-2 gap-4">
-        <FormField
-          control={incomeForm.control}
-          name="monthlyIncome"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Monthly Income (₹) *</FormLabel>
-              <FormControl>
-                <Input
-                  type="number"
-                  placeholder="Enter amount"
-                  {...field}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={incomeForm.control}
-          name="annualIncome"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Annual Income (₹)</FormLabel>
-              <FormControl>
-                <Input
-                  type="number"
-                  placeholder="Enter annual income"
-                  {...field}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-      </div>
-
-      {/* Asset Count with + / − */}
-      <FormField
-        control={incomeForm.control}
-        name="assetCount"
-        render={({ field }) => {
-          const value = Number(field.value) || 0;
-
-          const handleChange = (newVal) => {
-            if (newVal < 0) newVal = 0;
-            field.onChange(newVal);
-          };
-
-          return (
-            <FormItem>
-              <FormLabel>Asset Count</FormLabel>
-              <div className="flex items-center gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => handleChange(value - 1)}
+            {/* INCOME SECTION */}
+            {selectedSection === "income" && (
+              <Form {...incomeForm}>
+                <form
+                  onSubmit={incomeForm.handleSubmit(onIncomeSubmit)}
+                  className="space-y-6"
                 >
-                  -
-                </Button>
+                  {/* Occupation */}
+                  <FormField
+                    control={incomeForm.control}
+                    name="employmentType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Occupation *</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select employment type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Self-employed">Self-employed</SelectItem>
+                            <SelectItem value="Salaried">Salaried</SelectItem>
+                            <SelectItem value="Labour">Labour</SelectItem>
+                            <SelectItem value="Unemployed">Unemployed</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <div className="min-w-[3rem] text-center text-sm font-medium">
-                  {value}
-                </div>
+                  {/* Primary Income Source */}
+                  <FormField
+                    control={incomeForm.control}
+                    name="primaryIncomeSource"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Primary Income Source *</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="e.g., Small Business, Daily Wage"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => handleChange(value + 1)}
-                >
-                  +
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Total count of significant assets (e.g., land, shop, vehicle, etc.).
-              </p>
-              <FormMessage />
-            </FormItem>
-          );
-        }}
-      />
+                  {/* Monthly & Annual Income */}
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <FormField
+                      control={incomeForm.control}
+                      name="monthlyIncome"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Monthly Income (₹) *</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              placeholder="Enter amount"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-      {/* Tip */}
-      <div className="p-4 bg-muted rounded-lg">
-        <p className="text-sm text-muted-foreground">
-          💡 Tip: Providing accurate Income & Asset Details helps improve your
-          credit score accuracy and loan eligibility.
-        </p>
-      </div>
+                    <FormField
+                      control={incomeForm.control}
+                      name="annualIncome"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Annual Income (₹)</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              placeholder="Enter annual income"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
-      {/* Upload Income Proof */}
-      <div className="space-y-2">
-        <Label>Upload Income Proof (Optional)</Label>
-        <Input type="file" accept=".pdf,.jpg,.jpeg,.png" />
-        <p className="text-xs text-muted-foreground">
-          Upload payslip, sale receipt, or income certificate
-        </p>
-      </div>
+                  {/* Asset Count with + / − */}
+                  <FormField
+                    control={incomeForm.control}
+                    name="assetCount"
+                    render={({ field }) => {
+                      const value = Number(field.value) || 0;
 
-      <Button type="submit" className="w-full">
-        Save Income & Asset Details
-      </Button>
-    </form>
-  </Form>
-)}
+                      const handleChange = (newVal) => {
+                        if (newVal < 0) newVal = 0;
+                        field.onChange(newVal);
+                      };
+
+                      return (
+                        <FormItem>
+                          <FormLabel>Asset Count</FormLabel>
+                          <div className="flex items-center gap-3">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              onClick={() => handleChange(value - 1)}
+                            >
+                              -
+                            </Button>
+
+                            <div className="min-w-[3rem] text-center text-sm font-medium">
+                              {value}
+                            </div>
+
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              onClick={() => handleChange(value + 1)}
+                            >
+                              +
+                            </Button>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Total count of significant assets (e.g., land, shop, vehicle, etc.).
+                          </p>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
+                  />
+
+                  {/* Tip */}
+                  <div className="p-4 bg-muted rounded-lg">
+                    <p className="text-sm text-muted-foreground">
+                      💡 Tip: Providing accurate Income & Asset Details helps improve your
+                      credit score accuracy and loan eligibility, especially for scheme-based
+                      loans like{" "}
+                      {selectedSchemeName ? `"${selectedSchemeName}"` : "NBCFDC schemes"}.
+                    </p>
+                  </div>
+
+                  {/* Upload Income Proof */}
+                  <div className="space-y-2">
+                    <Label>Upload Income Proof (Optional)</Label>
+                    <Input type="file" accept=".pdf,.jpg,.jpeg,.png" />
+                    <p className="text-xs text-muted-foreground">
+                      Upload payslip, sale receipt, or income certificate
+                    </p>
+                  </div>
+
+                  <Button type="submit" className="w-full">
+                    Save Income & Asset Details
+                  </Button>
+                </form>
+              </Form>
+            )}
 
             {/* BANK SECTION */}
             {selectedSection === "bank" && (
               <Form {...bankForm}>
-                <form onSubmit={bankForm.handleSubmit(onBankSubmit)} className="space-y-6">
-                  <FormField control={bankForm.control} name="accountHolderName" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Account Holder Name *</FormLabel>
-                      <FormControl><Input placeholder="Must match Aadhaar name" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
+                <form
+                  onSubmit={bankForm.handleSubmit(onBankSubmit)}
+                  className="space-y-6"
+                >
+                  <FormField
+                    control={bankForm.control}
+                    name="accountHolderName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Account Holder Name *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Must match Aadhaar name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                  <FormField control={bankForm.control} name="bankName" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Bank Name *</FormLabel>
-                      <FormControl><Input placeholder="Enter bank name" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
+                  <FormField
+                    control={bankForm.control}
+                    name="bankName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Bank Name *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter bank name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
                   <div className="grid md:grid-cols-2 gap-4">
-                    <FormField control={bankForm.control} name="accountNumber" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Account Number *</FormLabel>
-                        <FormControl><Input placeholder="Enter account number" {...field} /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
-                    <FormField control={bankForm.control} name="confirmAccountNumber" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Confirm Account Number *</FormLabel>
-                        <FormControl><Input placeholder="Re-enter account number" {...field} /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
+                    <FormField
+                      control={bankForm.control}
+                      name="accountNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Account Number *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter account number" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={bankForm.control}
+                      name="confirmAccountNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Confirm Account Number *</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="Re-enter account number"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
 
                   <div className="grid md:grid-cols-2 gap-4">
-                    <FormField control={bankForm.control} name="ifscCode" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>IFSC Code *</FormLabel>
-                        <FormControl><Input placeholder="Enter 11-character IFSC" maxLength={11} {...field} /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
-                    <FormField control={bankForm.control} name="branchName" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Branch Name (Optional)</FormLabel>
-                        <FormControl><Input placeholder="Enter branch name" {...field} /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
+                    <FormField
+                      control={bankForm.control}
+                      name="ifscCode"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>IFSC Code *</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="Enter 11-character IFSC"
+                              maxLength={11}
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={bankForm.control}
+                      name="branchName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Branch Name (Optional)</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter branch name" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
 
-                  <FormField control={bankForm.control} name="upiId" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>UPI ID (Optional)</FormLabel>
-                      <FormControl><Input placeholder="yourname@upi" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
+                  <FormField
+                    control={bankForm.control}
+                    name="upiId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>UPI ID (Optional)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="yourname@upi" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
                   <div className="space-y-2">
                     <Label>Passbook Copy / Bank Statement (Optional)</Label>
@@ -668,22 +693,34 @@ const onEnrolledSchemesSubmit = (values) => {
                   </div>
 
                   {/* Consent */}
-                  <FormField control={bankForm.control} name="consent" render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                      <FormControl>
-                        <div className="flex items-start space-x-3">
-                          <Checkbox checked={field.value} onCheckedChange={field.onChange} id="consent-checkbox" />
+                  <FormField
+                    control={bankForm.control}
+                    name="consent"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                        <FormControl>
+                          <div className="flex items-start space-x-3">
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              id="consent-checkbox"
+                            />
+                          </div>
+                        </FormControl>
+
+                        <div className="space-y-1 leading-none">
+                          <FormLabel>
+                            I authorize NBCFDC to verify my bank details *
+                          </FormLabel>
+                          <FormMessage />
                         </div>
-                      </FormControl>
+                      </FormItem>
+                    )}
+                  />
 
-                      <div className="space-y-1 leading-none">
-                        <FormLabel>I authorize NBCFDC to verify my bank details *</FormLabel>
-                        <FormMessage />
-                      </div>
-                    </FormItem>
-                  )} />
-
-                  <Button type="submit" className="w-full">Save Bank Details</Button>
+                  <Button type="submit" className="w-full">
+                    Save Bank Details
+                  </Button>
                 </form>
               </Form>
             )}
@@ -692,31 +729,32 @@ const onEnrolledSchemesSubmit = (values) => {
             {selectedSection === "expenses" && (
               <div className="space-y-6">
                 <Form {...expensesForm}>
-                  <form onSubmit={expensesForm.handleSubmit(onExpensesSubmit)} className="space-y-6">
-
-                    {/* Bills UI (unchanged logic) */}
+                  <form
+                    onSubmit={expensesForm.handleSubmit(onExpensesSubmit)}
+                    className="space-y-6"
+                  >
                     <div className="space-y-4">
-
                       <Tabs defaultValue="upload" className="w-full">
-
                         <TabsContent value="upload" className="space-y-4">
                           <div className="rounded-lg space-y-6">
-                            <p className="text-sm text-muted-foreground">Upload your recent utility bills for verification. This helps improve your credit score accuracy.</p>
+                            <p className="text-sm text-muted-foreground">
+                              Upload your recent utility bills for verification. This helps
+                              improve your credit score accuracy.
+                            </p>
 
                             {/* Electricity Bills */}
                             <div className="space-y-3">
                               <Label>Electricity Bills (Max 3 PDFs)</Label>
 
-                              {/* File Upload */}
                               <Input
                                 type="file"
                                 accept=".pdf"
                                 multiple
                                 onChange={(e) => {
                                   const newFiles = Array.from(e.target.files || []);
-                                  const totalAllowed = 3 - uploadedBills.electricity.length;
+                                  const totalAllowed =
+                                    3 - uploadedBills.electricity.length;
 
-                                  // Take only allowed number of PDFs
                                   const validFiles = newFiles.slice(0, totalAllowed);
 
                                   setUploadedBills((prev) => ({
@@ -734,10 +772,8 @@ const onEnrolledSchemesSubmit = (values) => {
                                 disabled={uploadedBills.electricity.length >= 3}
                               />
 
-                              {/* Bills List */}
                               {uploadedBills.electricity.length > 0 && (
                                 <div className="space-y-2 mt-3">
-
                                   {uploadedBills.electricity.map((bill, idx) => (
                                     <div
                                       key={idx}
@@ -745,9 +781,10 @@ const onEnrolledSchemesSubmit = (values) => {
                                     >
                                       <FileText className="h-4 w-4 text-muted-foreground" />
 
-                                      <span className="text-sm flex-1">{bill.files[0]?.name}</span>
+                                      <span className="text-sm flex-1">
+                                        {bill.files[0]?.name}
+                                      </span>
 
-                                      {/* Status */}
                                       {bill.verifying ? (
                                         <div className="flex items-center gap-2 text-primary">
                                           <Clock className="h-4 w-4 animate-spin" />
@@ -756,19 +793,24 @@ const onEnrolledSchemesSubmit = (values) => {
                                       ) : bill.verified ? (
                                         <div className="flex items-center gap-1 text-success">
                                           <CheckCircle2 className="h-4 w-4" />
-                                          <span className="text-xs font-medium">Verified</span>
+                                          <span className="text-xs font-medium">
+                                            Verified
+                                          </span>
                                         </div>
                                       ) : (
-                                        <span className="text-xs text-muted-foreground">Pending</span>
+                                        <span className="text-xs text-muted-foreground">
+                                          Pending
+                                        </span>
                                       )}
 
-                                      {/* DELETE BUTTON */}
                                       <button
                                         className="text-red-500 text-xs font-medium"
                                         onClick={() => {
                                           setUploadedBills((prev) => ({
                                             ...prev,
-                                            electricity: prev.electricity.filter((_, i) => i !== idx),
+                                            electricity: prev.electricity.filter(
+                                              (_, i) => i !== idx
+                                            ),
                                           }));
                                         }}
                                       >
@@ -777,60 +819,70 @@ const onEnrolledSchemesSubmit = (values) => {
                                     </div>
                                   ))}
 
-                                  {/* Verify button */}
                                   {!uploadedBills.electricity.every((b) => b.verified) && (
                                     <Button
                                       type="button"
                                       size="sm"
                                       className="mt-2"
-                                      disabled={uploadedBills.electricity.some((b) => b.verifying)}
+                                      disabled={uploadedBills.electricity.some(
+                                        (b) => b.verifying
+                                      )}
                                       onClick={handleVerifyElectricityBills}
                                     >
                                       <Shield className="h-4 w-4 mr-2" />
                                       Verify All Electricity Bills
                                     </Button>
                                   )}
-
                                 </div>
                               )}
                             </div>
 
-
                             {/* Mobile Recharge Details */}
                             <div className="space-y-4">
-                              <Label className="font-medium">Mobile Recharge Details</Label>
+                              <Label className="font-medium">
+                                Mobile Recharge Details
+                              </Label>
 
-                              {/* Avg Amount */}
                               <FormField
                                 control={expensesForm.control}
                                 name="mobileAvgAmount"
                                 render={({ field }) => (
                                   <FormItem>
-                                    <FormLabel>Mobile Recharge Average Amount (₹)</FormLabel>
+                                    <FormLabel>
+                                      Mobile Recharge Average Amount (₹)
+                                    </FormLabel>
                                     <FormControl>
-                                      <Input type="number" placeholder="e.g. 299" {...field} />
+                                      <Input
+                                        type="number"
+                                        placeholder="e.g. 299"
+                                        {...field}
+                                      />
                                     </FormControl>
                                     <FormMessage />
                                   </FormItem>
                                 )}
                               />
 
-                              {/* Frequency */}
                               <FormField
                                 control={expensesForm.control}
                                 name="mobileFrequency"
                                 render={({ field }) => (
                                   <FormItem>
-                                    <FormLabel>Recharge Frequency Per Month</FormLabel>
+                                    <FormLabel>
+                                      Recharge Frequency Per Month
+                                    </FormLabel>
                                     <FormControl>
-                                      <Input type="number" placeholder="e.g. 2" {...field} />
+                                      <Input
+                                        type="number"
+                                        placeholder="e.g. 2"
+                                        {...field}
+                                      />
                                     </FormControl>
                                     <FormMessage />
                                   </FormItem>
                                 )}
                               />
 
-                              {/* ISP */}
                               <FormField
                                 control={expensesForm.control}
                                 name="internetProvider"
@@ -838,7 +890,11 @@ const onEnrolledSchemesSubmit = (values) => {
                                   <FormItem>
                                     <FormLabel>Internet Service Provider</FormLabel>
                                     <FormControl>
-                                      <Input type="text" placeholder="e.g. Jio / Airtel / Vi" {...field} />
+                                      <Input
+                                        type="text"
+                                        placeholder="e.g. Jio / Airtel / Vi"
+                                        {...field}
+                                      />
                                     </FormControl>
                                     <FormMessage />
                                   </FormItem>
@@ -850,7 +906,6 @@ const onEnrolledSchemesSubmit = (values) => {
                             <div className="space-y-4">
                               <Label className="font-medium">Gas Bill Details</Label>
 
-                              {/* LPG Refills Per Month */}
                               <FormField
                                 control={expensesForm.control}
                                 name="lpgRefills"
@@ -858,14 +913,18 @@ const onEnrolledSchemesSubmit = (values) => {
                                   <FormItem>
                                     <FormLabel>LPG Refills Per Month</FormLabel>
                                     <FormControl>
-                                      <Input type="number" min="0" placeholder="e.g. 1" {...field} />
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        placeholder="e.g. 1"
+                                        {...field}
+                                      />
                                     </FormControl>
                                     <FormMessage />
                                   </FormItem>
                                 )}
                               />
 
-                              {/* LPG Consumer Number */}
                               <FormField
                                 control={expensesForm.control}
                                 name="lpgConsumerNumber"
@@ -873,14 +932,17 @@ const onEnrolledSchemesSubmit = (values) => {
                                   <FormItem>
                                     <FormLabel>LPG Consumer Number</FormLabel>
                                     <FormControl>
-                                      <Input type="text" placeholder="Enter consumer number" {...field} />
+                                      <Input
+                                        type="text"
+                                        placeholder="Enter consumer number"
+                                        {...field}
+                                      />
                                     </FormControl>
                                     <FormMessage />
                                   </FormItem>
                                 )}
                               />
 
-                              {/* Gas Average Cost */}
                               <FormField
                                 control={expensesForm.control}
                                 name="gasAvgCost"
@@ -888,14 +950,18 @@ const onEnrolledSchemesSubmit = (values) => {
                                   <FormItem>
                                     <FormLabel>Average Gas Cost (₹)</FormLabel>
                                     <FormControl>
-                                      <Input type="number" min="0" placeholder="e.g. 800" {...field} />
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        placeholder="e.g. 800"
+                                        {...field}
+                                      />
                                     </FormControl>
                                     <FormMessage />
                                   </FormItem>
                                 )}
                               />
 
-                              {/* Refill Interval Days */}
                               <FormField
                                 control={expensesForm.control}
                                 name="lpgRefillInterval"
@@ -903,7 +969,12 @@ const onEnrolledSchemesSubmit = (values) => {
                                   <FormItem>
                                     <FormLabel>Refill Interval Days</FormLabel>
                                     <FormControl>
-                                      <Input type="number" min="0" placeholder="e.g. 25" {...field} />
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        placeholder="e.g. 25"
+                                        {...field}
+                                      />
                                     </FormControl>
                                     <FormMessage />
                                   </FormItem>
@@ -912,23 +983,29 @@ const onEnrolledSchemesSubmit = (values) => {
                             </div>
                           </div>
                         </TabsContent>
-
                       </Tabs>
                     </div>
 
-                    <FormField control={expensesForm.control} name="remarks" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Remarks (Optional)</FormLabel>
-                        <FormControl><Textarea placeholder="Any additional information" {...field} /></FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
+                    <FormField
+                      control={expensesForm.control}
+                      name="remarks"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Remarks (Optional)</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Any additional information"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                    {/* <div className="p-4 bg-muted rounded-lg">
-                      <p className="text-sm text-muted-foreground">💡 Tip: This data helps us calculate your Income vs Expense Ratio for accurate credit assessment.</p>
-                    </div> */}
-
-                    <Button type="submit" className="w-full">Save Expense Details</Button>
+                    <Button type="submit" className="w-full">
+                      Save Expense Details
+                    </Button>
                   </form>
                 </Form>
               </div>
@@ -938,24 +1015,23 @@ const onEnrolledSchemesSubmit = (values) => {
             {selectedSection === "House Hold and Ration Card Detail" && (
               <div className="space-y-6">
                 <div className="rounded-lg">
-
-                  {/* HEADER */}
                   <div className="flex items-start gap-3 mb-4">
                     <Shield className="h-6 w-6 text-primary mt-0.5" />
                     <div>
-                      <h3 className="text-lg font-semibold text-primary mb-1">Ration Card</h3>
+                      <h3 className="text-lg font-semibold text-primary mb-1">
+                        Ration Card
+                      </h3>
                     </div>
                   </div>
 
-                  {/* IF FETCHED */}
                   {rationFetched ? (
                     <div className="space-y-6">
-
-                      {/* SUCCESS BOX */}
                       <div className="p-4 bg-success/10 border border-success rounded-lg">
                         <div className="flex items-center gap-2 text-success mb-2">
                           <CheckCircle2 className="h-5 w-5" />
-                          <span className="font-semibold">Ration Details Fetched Successfully</span>
+                          <span className="font-semibold">
+                            Ration Details Fetched Successfully
+                          </span>
                         </div>
                         <p className="text-sm text-muted-foreground">
                           Your ration card details have been successfully fetched.
@@ -963,45 +1039,64 @@ const onEnrolledSchemesSubmit = (values) => {
                         </p>
                       </div>
 
-                      {/* ⭐ RATION DETAILS (READ-ONLY) */}
                       <div className="p-4 border rounded-lg bg-muted/40 space-y-4">
-
-                        <h4 className="font-semibold text-primary text-md">Household Details</h4>
+                        <h4 className="font-semibold text-primary text-md">
+                          Household Details
+                        </h4>
 
                         <div className="grid md:grid-cols-2 gap-4">
-
                           <div>
                             <Label>Household Size</Label>
-                            <Input value={rationDetails.householdSize} readOnly className="bg-gray-100" />
+                            <Input
+                              value={rationDetails.householdSize}
+                              readOnly
+                              className="bg-gray-100"
+                            />
                           </div>
 
                           <div>
                             <Label>Household Dependents</Label>
-                            <Input value={rationDetails.dependentCount} readOnly className="bg-gray-100" />
+                            <Input
+                              value={rationDetails.dependentCount}
+                              readOnly
+                              className="bg-gray-100"
+                            />
                           </div>
 
                           <div>
                             <Label>Earners Count</Label>
-                            <Input value={rationDetails.earnersCount} readOnly className="bg-gray-100" />
+                            <Input
+                              value={rationDetails.earnersCount}
+                              readOnly
+                              className="bg-gray-100"
+                            />
                           </div>
 
                           <div>
                             <Label>Dependency Ratio</Label>
-                            <Input value={rationDetails.dependencyRatio} readOnly className="bg-gray-100" />
+                            <Input
+                              value={rationDetails.dependencyRatio}
+                              readOnly
+                              className="bg-gray-100"
+                            />
                           </div>
 
                           <div>
                             <Label>Ration Card Category</Label>
-                            <Input value={rationDetails.rationCategory} readOnly className="bg-gray-100" />
+                            <Input
+                              value={rationDetails.rationCategory}
+                              readOnly
+                              className="bg-gray-100"
+                            />
                           </div>
-
                         </div>
                       </div>
 
-                      {/* ⭐ SECC CATEGORY SECTION */}
                       <div className="p-4 border rounded-lg bg-muted/40 space-y-4">
                         <div className="flex justify-between items-center">
-                          <h4 className="font-semibold text-primary text-md">SECC Category</h4>
+                          <h4 className="font-semibold text-primary text-md">
+                            SECC Category
+                          </h4>
 
                           {!seccFetched && (
                             <Button
@@ -1018,20 +1113,26 @@ const onEnrolledSchemesSubmit = (values) => {
                           <div className="grid md:grid-cols-2 gap-4">
                             <div>
                               <Label>SECC Category</Label>
-                              <Input value={seccDetails.category} readOnly className="bg-gray-100" />
+                              <Input
+                                value={seccDetails.category}
+                                readOnly
+                                className="bg-gray-100"
+                              />
                             </div>
 
                             <div>
                               <Label>SECC Score</Label>
-                              <Input value={seccDetails.score} readOnly className="bg-gray-100" />
+                              <Input
+                                value={seccDetails.score}
+                                readOnly
+                                className="bg-gray-100"
+                              />
                             </div>
                           </div>
                         )}
                       </div>
-
                     </div>
                   ) : (
-                    /* BEFORE FETCH */
                     <div className="space-y-4">
                       <div className="space-y-2">
                         <Label>Ration Card Number *</Label>
@@ -1042,13 +1143,11 @@ const onEnrolledSchemesSubmit = (values) => {
                           maxLength={10}
                           value={rationNumber}
                           onChange={(e) => {
-                            // only NUMBERS allowed
                             const val = e.target.value.replace(/\D/g, "");
                             setRationNumber(val);
                           }}
                         />
 
-                        {/* Error message */}
                         {rationError && (
                           <p className="text-red-500 text-sm">{rationError}</p>
                         )}
@@ -1071,54 +1170,234 @@ const onEnrolledSchemesSubmit = (values) => {
               </div>
             )}
 
+           
+            {/* ENROLLED SCHEMES SECTION */}
+            {selectedSection === "schemes" && (
+              <Form {...enrolledSchemesForm}>
+                <form
+                  onSubmit={enrolledSchemesForm.handleSubmit(onEnrolledSchemesSubmit)}
+                  className="space-y-6"
+                >
+                  <FormField
+                    control={enrolledSchemesForm.control}
+                    name="enrolledMgnrega"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Enrolled in MGNREGA *</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select Yes / No" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Yes">Yes</SelectItem>
+                            <SelectItem value="No">No</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-            {/* LOAN */}
+                  <FormField
+                    control={enrolledSchemesForm.control}
+                    name="enrolledPmUjjwala"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Enrolled in PM Ujjwala Yojana *</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select Yes / No" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Yes">Yes</SelectItem>
+                            <SelectItem value="No">No</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={enrolledSchemesForm.control}
+                    name="enrolledPmJay"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Enrolled in PM-JAY (Ayushman Bharat) *</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select Yes / No" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Yes">Yes</SelectItem>
+                            <SelectItem value="No">No</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={enrolledSchemesForm.control}
+                    name="enrolledPensionScheme"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Enrolled in Pension Scheme *</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select Yes / No" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Yes">Yes</SelectItem>
+                            <SelectItem value="No">No</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <Button type="submit" className="w-full">
+                    Save Enrolled Schemes
+                  </Button>
+                </form>
+              </Form>
+            )}
+
+             {/* LOAN */}
             {selectedSection === "loan" && (
               <Form {...loanForm}>
-                <form onSubmit={loanForm.handleSubmit(onLoanSubmit)} className="space-y-6">
+                <form
+                  onSubmit={loanForm.handleSubmit(onLoanSubmit)}
+                  className="space-y-6"
+                >
                   <div className="p-4 bg-primary/5 rounded-lg border border-primary/10">
-                    <p className="text-sm font-medium text-primary mb-2">💰 Loan Eligibility Calculator</p>
-                    <p className="text-xs text-muted-foreground">Enter your desired loan amount and purpose. For amounts above ₹1 Lakh, additional expense details will be required.</p>
+                    <p className="text-sm font-medium text-primary mb-2">
+                      💰 Loan Eligibility Calculator
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedSchemeName
+                        ? `You’re applying under the "${selectedSchemeName}" scheme. Enter your desired loan amount and purpose. For amounts above ₹1 Lakh, we’ll ask for a bit more detail about your expenses.`
+                        : "Enter your desired loan amount and purpose. For amounts above ₹1 Lakh, additional expense details will be required."}
+                    </p>
                   </div>
 
-                  <FormField control={loanForm.control} name="loanAmount" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Desired Loan Amount (₹) *</FormLabel>
-                      <FormControl><Input type="number" placeholder="Enter amount (e.g., 50100)" {...field} onChange={(e) => { field.onChange(e); const amount = parseFloat(e.target.value) || 0; setLoanAmount(amount); }} /></FormControl>
-                      <p className="text-xs text-muted-foreground">
-                        {loanAmount > LOAN_THRESHOLD ? (
-                          <span className="text-accent font-medium">⚠️ Amount above ₹{(LOAN_THRESHOLD / 1000).toFixed(0)}K - Additional details required</span>
-                        ) : (
-                          <span className="text-success font-medium">✓ Amount within basic eligibility</span>
-                        )}
-                      </p>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
+                  <FormField
+                    control={loanForm.control}
+                    name="loanAmount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Desired Loan Amount (₹) *</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="Enter amount (e.g., 50100)"
+                            {...field}
+                            onChange={(e) => {
+                              field.onChange(e);
+                              const amount = parseFloat(e.target.value) || 0;
+                              setLoanAmount(amount);
+                            }}
+                          />
+                        </FormControl>
+                        <p className="text-xs text-muted-foreground">
+                          {loanAmount > LOAN_THRESHOLD ? (
+                            <span className="text-accent font-medium">
+                              ⚠️ Amount above ₹{(LOAN_THRESHOLD / 1000).toFixed(0)}K - Additional
+                              details required
+                            </span>
+                          ) : (
+                            <span className="text-success font-medium">
+                              ✓ Amount within basic eligibility
+                            </span>
+                          )}
+                        </p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                  <FormField control={loanForm.control} name="purpose" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Purpose of Loan *</FormLabel>
-                      <FormControl><Textarea placeholder="Describe how you will use this loan (e.g., business expansion, medical expenses, education)" className="min-h-[100px]" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
+                  <FormField
+                    control={loanForm.control}
+                    name="purpose"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Purpose of Loan *</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Describe how you will use this loan (e.g., business expansion, medical expenses, education)"
+                            className="min-h-[100px]"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
                   {showExpensesForLoan && loanAmount > LOAN_THRESHOLD && (
                     <div className="space-y-6 p-6 border-2 border-accent rounded-lg bg-accent/5">
-                      <div className="flex items-center gap-2 text-accent"><AlertCircle className="h-5 w-5" /><h3 className="font-semibold">Additional Financial Information Required</h3></div>
+                      <div className="flex items-center gap-2 text-accent">
+                        <AlertCircle className="h-5 w-5" />
+                        <h3 className="font-semibold">
+                          Additional Financial Information Required
+                        </h3>
+                      </div>
                       <div className="grid md:grid-cols-2 gap-4">
-                        <div className="space-y-2"><Label>Monthly Household Expenses (₹) *</Label><Input type="number" placeholder="e.g., 15010" required /></div>
-                        <div className="space-y-2"><Label>Monthly Business Expenses (₹)</Label><Input type="number" placeholder="e.g., 10000" /></div>
-                        <div className="space-y-2"><Label>Existing Loan Repayments (₹/month)</Label><Input type="number" placeholder="e.g., 5010" /></div>
-                        <div className="space-y-2"><Label>Electricity Bill (₹/month)</Label><Input type="number" placeholder="e.g., 1200" /></div>
+                        <div className="space-y-2">
+                          <Label>Monthly Household Expenses (₹) *</Label>
+                          <Input
+                            type="number"
+                            placeholder="e.g., 15010"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Monthly Business Expenses (₹)</Label>
+                          <Input type="number" placeholder="e.g., 10000" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Existing Loan Repayments (₹/month)</Label>
+                          <Input type="number" placeholder="e.g., 5010" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Electricity Bill (₹/month)</Label>
+                          <Input type="number" placeholder="e.g., 1200" />
+                        </div>
                       </div>
 
                       <div className="space-y-2">
                         <Label>Commodities Owned</Label>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                          {["TV", "Refrigerator", "Washing Machine", "Two-Wheeler", "Four-Wheeler", "Tractor"].map((item) => (
-                            <div key={item} className="flex items-center space-x-2"><Checkbox id={`loan-${item}`} /><label htmlFor={`loan-${item}`} className="text-sm cursor-pointer">{item}</label></div>
+                          {[
+                            "TV",
+                            "Refrigerator",
+                            "Washing Machine",
+                            "Two-Wheeler",
+                            "Four-Wheeler",
+                            "Tractor",
+                          ].map((item) => (
+                            <div
+                              key={item}
+                              className="flex items-center space-x-2"
+                            >
+                              <Checkbox id={`loan-${item}`} />
+                              <label
+                                htmlFor={`loan-${item}`}
+                                className="text-sm cursor-pointer"
+                              >
+                                {item}
+                              </label>
+                            </div>
                           ))}
                         </div>
                       </div>
@@ -1126,115 +1405,21 @@ const onEnrolledSchemesSubmit = (values) => {
                   )}
 
                   <div className="p-4 bg-muted rounded-lg">
-                    <p className="text-sm text-muted-foreground">💡 Tip: Make sure all previous profile sections are completed for faster loan approval.</p>
+                    <p className="text-sm text-muted-foreground">
+                      💡 Tip: Make sure all previous profile sections are completed for faster
+                      loan approval, especially when applying under a specific scheme like{" "}
+                      {selectedSchemeName
+                        ? `"${selectedSchemeName}".`
+                        : "NBCFDC concessional schemes."}
+                    </p>
                   </div>
 
-                  <Button type="submit" className="w-full" size="lg">Submit Loan Application</Button>
+                  <Button type="submit" className="w-full" size="lg">
+                    Submit Loan Application
+                  </Button>
                 </form>
               </Form>
             )}
-
-           {/* ENROLLED SCHEMES SECTION */}
-{selectedSection === "schemes" && (
-  <Form {...enrolledSchemesForm}>
-    <form
-      onSubmit={enrolledSchemesForm.handleSubmit(onEnrolledSchemesSubmit)}
-      className="space-y-6"
-    >
-      <FormField
-        control={enrolledSchemesForm.control}
-        name="enrolledMgnrega"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Enrolled in MGNREGA *</FormLabel>
-            <Select onValueChange={field.onChange} defaultValue={field.value}>
-              <FormControl>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Yes / No" />
-                </SelectTrigger>
-              </FormControl>
-              <SelectContent>
-                <SelectItem value="Yes">Yes</SelectItem>
-                <SelectItem value="No">No</SelectItem>
-              </SelectContent>
-            </Select>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-
-      <FormField
-        control={enrolledSchemesForm.control}
-        name="enrolledPmUjjwala"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Enrolled in PM Ujjwala Yojana *</FormLabel>
-            <Select onValueChange={field.onChange} defaultValue={field.value}>
-              <FormControl>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Yes / No" />
-                </SelectTrigger>
-              </FormControl>
-              <SelectContent>
-                <SelectItem value="Yes">Yes</SelectItem>
-                <SelectItem value="No">No</SelectItem>
-              </SelectContent>
-            </Select>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-
-      <FormField
-        control={enrolledSchemesForm.control}
-        name="enrolledPmJay"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Enrolled in PM-JAY (Ayushman Bharat) *</FormLabel>
-            <Select onValueChange={field.onChange} defaultValue={field.value}>
-              <FormControl>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Yes / No" />
-                </SelectTrigger>
-              </FormControl>
-              <SelectContent>
-                <SelectItem value="Yes">Yes</SelectItem>
-                <SelectItem value="No">No</SelectItem>
-              </SelectContent>
-            </Select>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-
-      <FormField
-        control={enrolledSchemesForm.control}
-        name="enrolledPensionScheme"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Enrolled in Pension Scheme *</FormLabel>
-            <Select onValueChange={field.onChange} defaultValue={field.value}>
-              <FormControl>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Yes / No" />
-                </SelectTrigger>
-              </FormControl>
-              <SelectContent>
-                <SelectItem value="Yes">Yes</SelectItem>
-                <SelectItem value="No">No</SelectItem>
-              </SelectContent>
-            </Select>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-
-      <Button type="submit" className="w-full">
-        Save Enrolled Schemes
-      </Button>
-    </form>
-  </Form>
-)}
 
           </CardContent>
         </Card>

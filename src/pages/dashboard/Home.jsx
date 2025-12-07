@@ -12,85 +12,105 @@ import { Progress } from "@/components/ui/progress";
 import { AlertCircle, ArrowRight, Shield } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { useEffect, useState } from "react";
+
 
 const Home = () => {
-
-  // These should ideally come from backend
   const creditScore = 68; // 0–100 from backend
   const safeLoanAmount = 300000; // from backend (INR)
   const estimatedIncome = 600000; // from backend (INR)
 
+  const [fullName, setFullName] = useState("");
 
 
+  useEffect(() => {
+    const aadhar_no = localStorage.getItem("aadhar_no");
 
+    if (!aadhar_no) return;
 
-
-  // 0–100 -> 300–900
-  const [userStatus, setUserStatus] = React.useState(null);
-  const normalized = Math.min(100, Math.max(0, creditScore ?? 0));
-  const cibilScore = Math.round(300 + (normalized / 100) * 600); // 300–900
-
-  // Needle angle for semi-circle (-90° left to +90° right)
-  const progress = (cibilScore - 300) / 600; // 0–1
-  const minAngle = -90;
-  const maxAngle = 90;
-  const angle = minAngle + progress * (maxAngle - minAngle);
-
-  // Risk band label
-  let riskLabel = "High Risk";
-  if (cibilScore >= 550 && cibilScore < 650) riskLabel = "Moderate Risk";
-  if (cibilScore >= 650 && cibilScore < 750) riskLabel = "Low Risk";
-  if (cibilScore >= 750) riskLabel = "Very Low Risk";
-
-  const currencyFormatter = new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  });
-
-  const handleUpdateScore = () => {
-    // TODO: call backend to refresh credit score, safeLoanAmount, estimatedIncome
-    console.log("Update score clicked");
-  };
-
-
-  React.useEffect(() => {
-    const fetchStatus = async () => {
+    const fetchUser = async () => {
       try {
-        const aadhaarNumber = localStorage.getItem("aadhar_no");
-        if (!aadhaarNumber) return;
+        const res = await fetch("http://localhost:5010/api/beneficiary/get", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ aadhar_no }),
+        });
 
-        const res = await fetch(`http://localhost:5000/api/eligible-beneficiary/${aadhaarNumber}`);
         const data = await res.json();
-
-        // Only set userStatus if backend returns success
         if (data.success) {
-          setUserStatus(data); // data has eligibility_status
-        } else {
-          setUserStatus(null);
+          setFullName(data.beneficiary.full_name);
         }
-
       } catch (error) {
-        console.error("Error fetching caste verification:", error);
+        console.error("Error fetching user:", error);
       }
     };
 
-    fetchStatus();
+    fetchUser();
   }, []);
 
-
-  const profileCompletion = userStatus?.verified ? 100 : 75;
-
+   // 0–100 -> 300–900
+   const [userStatus, setUserStatus] = React.useState(null);
+   const normalized = Math.min(100, Math.max(0, creditScore ?? 0));
+   const cibilScore = Math.round(300 + (normalized / 100) * 600); // 300–900
+ 
+   // Needle angle for semi-circle (-90° left to +90° right)
+   const progress = (cibilScore - 300) / 600; // 0–1
+   const minAngle = -90;
+   const maxAngle = 90;
+   const angle = minAngle + progress * (maxAngle - minAngle);
+ 
+   // Risk band label
+   let riskLabel = "High Risk";
+   if (cibilScore >= 550 && cibilScore < 650) riskLabel = "Moderate Risk";
+   if (cibilScore >= 650 && cibilScore < 750) riskLabel = "Low Risk";
+   if (cibilScore >= 750) riskLabel = "Very Low Risk";
+ 
+   const currencyFormatter = new Intl.NumberFormat("en-IN", {
+     style: "currency",
+     currency: "INR",
+     maximumFractionDigits: 0,
+   });
+ 
+   const handleUpdateScore = () => {
+     // TODO: call backend to refresh credit score, safeLoanAmount, estimatedIncome
+     console.log("Update score clicked");
+   };
+ 
+ 
+   React.useEffect(() => {
+     const fetchStatus = async () => {
+       try {
+         const aadhaarNumber = localStorage.getItem("aadhar_no");
+         if (!aadhaarNumber) return;
+ 
+         const res = await fetch(`http://localhost:5010/api/eligible-beneficiary/${aadhaarNumber}`);
+         const data = await res.json();
+ 
+         // Only set userStatus if backend returns success
+         if (data.success) {
+           setUserStatus(data); // data has eligibility_status
+         } else {
+           setUserStatus(null);
+         }
+ 
+       } catch (error) {
+         console.error("Error fetching caste verification:", error);
+       }
+     };
+ 
+     fetchStatus();
+   }, []);
+ 
+ 
+   const profileCompletion = userStatus?.verified ? 100 : 75;
 
   return (
     <div className="container mx-auto px-4 py-8 pt-20">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-primary mb-2">
-          Welcome back, Rajesh Kumar
+      <h1 className="text-3xl font-bold text-primary mb-2">
+          Welcome back, {fullName || "User"}
         </h1>
-        <p className="text-muted-foreground">
-          Your credit score and application overview
-        </p>
+        <p className="text-muted-foreground">Your credit score and application overview</p>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-8">

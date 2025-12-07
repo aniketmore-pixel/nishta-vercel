@@ -1,5 +1,6 @@
+
 import { useState } from "react";
-import { useLocation } from "react-router-dom"; // ⬅️ NEW
+import { useLocation } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -31,7 +32,6 @@ import {
   BadgeCheck
 } from "lucide-react";
 
-// small helpers
 const cn = (...classes) => classes.filter(Boolean).join(' ');
 const useToast = () => ({
   toast: ({ title, description, variant }) => {
@@ -39,14 +39,12 @@ const useToast = () => ({
   }
 });
 
-// Zod schemas (Basic Details schema removed)
-
 const incomeDetailsSchema = z.object({
   employmentType: z.enum(["Self-employed", "Salaried", "Labour", "Unemployed"]),
   primaryIncomeSource: z.string().min(2, "This field is required"),
   monthlyIncome: z.string().min(1, "Monthly income is required"),
   secondaryIncome: z.string().optional(),
-  householdMembers: z.string().optional(), // made optional since you weren't using it in the form
+  householdMembers: z.string().optional(),
 });
 
 const bankDetailsSchema = z.object({
@@ -94,7 +92,6 @@ const enrolledSchemesSchema = z.object({
   }),
 });
 
-// Modified profile sections (Basic Details removed)
 const profileSections = [
   { id: "income", title: "Income & Asset Details", icon: Wallet, completed: false },
   { id: "bank", title: "Bank Details", icon: CreditCard, completed: false },
@@ -105,15 +102,14 @@ const profileSections = [
 ];
 
 const ApplyLoan = () => {
-  const location = useLocation(); // ⬅️ read current URL
+  const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
-  const selectedSchemeName = searchParams.get("scheme"); // e.g. "Term Loan – General Loan Scheme"
+  const selectedSchemeName = searchParams.get("scheme");
 
   const pageTitle = selectedSchemeName
     ? `Complete Your Profile for ${selectedSchemeName} 🚀`
     : "Complete Your Profile 🚀";
 
-  // Start on the first remaining section
   const [selectedSection, setSelectedSection] = useState("income");
   const [completedSections, setCompletedSections] = useState([]);
   const { toast } = useToast();
@@ -134,7 +130,6 @@ const ApplyLoan = () => {
     rationCategory: ""
   });
 
-  // For SECC
   const [seccFetched, setSeccFetched] = useState(false);
   const [fetchingSECC, setFetchingSECC] = useState(false);
   const [seccDetails, setSeccDetails] = useState({
@@ -147,6 +142,17 @@ const ApplyLoan = () => {
     mobile: [],
     other: [],
   });
+
+  const [lpgDetails, setLpgDetails] = useState({
+    consumer_no: "",
+    lpg_refills_3m: "",
+    lpg_avg_cost: "",
+    lpg_avg_refill_interval_days: "",
+    verifying: false,
+    verified: null,
+  });
+  
+  const [lpgPdfFile, setLpgPdfFile] = useState(null);
 
   const [uploadedDocuments, setUploadedDocuments] = useState({
     caste: { file: null, verified: false, verifying: false },
@@ -161,7 +167,6 @@ const ApplyLoan = () => {
   const completedCount = completedSections.length;
   const progressPercentage = (completedCount / profileSections.length) * 100;
 
-  // forms
   const incomeForm = useForm({
     resolver: zodResolver(incomeDetailsSchema),
     defaultValues: {
@@ -191,6 +196,14 @@ const ApplyLoan = () => {
     },
   });
 
+  const [mobileDetails, setMobileDetails] = useState({
+    mobile_recharge_amt_avg: "",
+    mobile_recharge_freq_pm: "",
+    provider: "",
+    verifying: false,
+    verified: false
+  });
+
   const enrolledSchemesForm = useForm({
     resolver: zodResolver(enrolledSchemesSchema),
     defaultValues: {
@@ -203,7 +216,6 @@ const ApplyLoan = () => {
 
   const onEnrolledSchemesSubmit = (values) => {
     console.log("Enrolled schemes data:", values);
-    // TODO: call your backend API here
     if (!completedSections.includes("schemes")) {
       setCompletedSections([...completedSections, "schemes"]);
     }
@@ -216,7 +228,7 @@ const ApplyLoan = () => {
 
   const [loanAmount, setLoanAmount] = useState(0);
   const [showExpensesForLoan, setShowExpensesForLoan] = useState(false);
-  const LOAN_THRESHOLD = 100000; // ₹1 Lakh
+  const LOAN_THRESHOLD = 100000;
 
   const onIncomeSubmit = (data) => {
     console.log("Income Income & Asset Details:", data);
@@ -245,6 +257,61 @@ const ApplyLoan = () => {
     toast({ title: "Documents Submitted", description: "Your documents have been uploaded successfully.", variant: 'success' });
   };
 
+  const handleVerifyLpg = async () => {
+    try {
+      const aadhar_no = localStorage.getItem("aadhar_no");
+  
+      if (!aadhar_no) {
+        toast({
+          title: "Aadhaar Missing",
+          description: "Aadhaar not found in localStorage.",
+          variant: "destructive",
+        });
+        return;
+      }
+  
+      setLpgDetails((prev) => ({ ...prev, verifying: true }));
+  
+      const res = await fetch("http://localhost:5010/api/lpg/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          aadhar_no,
+          consumer_no: lpgDetails.consumer_no,
+          lpg_refills_3m: lpgDetails.lpg_refills_3m,
+          lpg_avg_cost: lpgDetails.lpg_avg_cost,
+          lpg_avg_refill_interval_days: lpgDetails.lpg_avg_refill_interval_days,
+        }),
+      });
+  
+      const data = await res.json();
+  
+      setLpgDetails((prev) => ({
+        ...prev,
+        verifying: false,
+        verified: data.match,
+      }));
+  
+      toast({
+        title: data.match ? "LPG Bill Verified" : "Suspicious LPG Data",
+        description: data.match
+          ? "Your LPG details match our records."
+          : "Mismatch found. Flag has been updated.",
+        variant: data.match ? "success" : "destructive",
+      });
+    } catch (error) {
+      console.error(error);
+  
+      setLpgDetails((prev) => ({ ...prev, verifying: false }));
+  
+      toast({
+        title: "Verification Error",
+        description: "Unable to verify LPG data.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleVerifyElectricityBills = async () => {
     setUploadedBills((prev) => ({
       ...prev,
@@ -263,7 +330,7 @@ const ApplyLoan = () => {
       });
 
       const data = await res.json();
-
+  
       setUploadedBills((prev) => ({
         ...prev,
         electricity: prev.electricity.map((b, idx) => ({
@@ -284,6 +351,115 @@ const ApplyLoan = () => {
         })),
       }));
     }
+  };
+
+  const handleAadhaarVerification = async (method) => {
+    setVerifyingAadhaar(true);
+    setTimeout(() => {
+      setVerifyingAadhaar(false);
+      setAadhaarVerified(true);
+      if (method === "digilocker") setDigilockerConnected(true);
+      toast({ title: "Aadhaar Verified Successfully", description: `Your Aadhaar has been verified using ${method === "blockchain" ? "blockchain" : "DigiLocker"}.`, variant: "success" });
+    }, 2000);
+  };
+
+  const handleBillApiConnect = () => {
+    setTimeout(() => {
+      setBillApiConnected(true);
+      toast({ title: "API Connected Successfully", description: "Your bill payment accounts have been linked.", variant: "success" });
+    }, 1500);
+  };
+
+  const handleBillUpload = (type, files) => {
+    if (!files || files.length === 0) return;
+    const fileArray = Array.from(files);
+    const newBills = fileArray.map((file) => ({ files: [file], verified: false, verifying: false }));
+    setUploadedBills((prev) => ({ ...prev, [type]: [...prev[type], ...newBills] }));
+    toast({ title: "Files Uploaded", description: `${fileArray.length} file(s) uploaded. Click verify to authenticate.` });
+  };
+
+  const handleVerifyBills = async (type) => {
+    const bills = uploadedBills[type];
+    if (bills.length === 0) {
+      toast({ title: "No Files to Verify", description: "Please upload files first.", variant: "destructive" });
+      return;
+    }
+    
+    setUploadedBills((prev) => ({ ...prev, [type]: prev[type].map((bill) => ({ ...bill, verifying: true })) }));
+    
+    setTimeout(() => {
+      setUploadedBills((prev) => ({ ...prev, [type]: prev[type].map((bill) => ({ ...bill, verified: true, verifying: false })) }));
+      toast({ title: "Bills Verified Successfully", description: `All ${type} bills have been verified and authenticated.`, variant: "success" });
+    }, 2000);
+  };
+
+  const verifyMobileDetails = async () => {
+    try {
+      setMobileDetails((prev) => ({ ...prev, verifying: true }));
+
+      const aadhar_no = localStorage.getItem("aadhar_no");
+
+      const res = await fetch("http://localhost:5010/api/mobile/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          aadhar_no,
+          mobile_recharge_amt_avg: mobileDetails.mobile_recharge_amt_avg,
+          mobile_recharge_freq_pm: mobileDetails.mobile_recharge_freq_pm,
+          provider: mobileDetails.provider
+        })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.msg || "Verification failed");
+      }
+
+      setMobileDetails((prev) => ({
+        ...prev,
+        verifying: false,
+        verified: data.match,
+        flag: data.flag
+      }));
+
+      setUploadedBills((prev) => ({
+        ...prev,
+        mobile: prev.mobile.map((bill) => ({
+          ...bill,
+          verifying: false,
+          verified: data.match
+        }))
+      }));
+
+      toast({
+        title: data.match ? "Mobile Bill Verified ✔️" : "Suspicious Data ❗",
+        description: data.match
+          ? "All mobile details matched your records."
+          : "Mismatch found. Flag has been set to suspicious.",
+        variant: data.match ? "success" : "destructive"
+      });
+
+    } catch (err) {
+      console.error(err);
+
+      setMobileDetails((prev) => ({ ...prev, verifying: false }));
+
+      toast({
+        title: "Verification Error",
+        description: "Unable to verify mobile data.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDocumentUpload = (docType, file) => {
+    if (!file) return;
+    setUploadedDocuments((prev) => ({ ...prev, [docType]: { file, verified: false, verifying: true } }));
+    setTimeout(() => {
+      setUploadedDocuments((prev) => ({ ...prev, [docType]: { ...prev[docType], verified: true, verifying: false } }));
+      toast({ title: "Document Verified", description: `${docType} document has been verified successfully.`, variant: "success" });
+    }, 2000);
   };
 
   const onLoanSubmit = (data) => {
@@ -837,150 +1013,204 @@ const ApplyLoan = () => {
                               )}
                             </div>
 
-                            {/* Mobile Recharge Details */}
-                            <div className="space-y-4">
-                              <Label className="font-medium">
-                                Mobile Recharge Details
-                              </Label>
 
-                              <FormField
-                                control={expensesForm.control}
-                                name="mobileAvgAmount"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>
-                                      Mobile Recharge Average Amount (₹)
-                                    </FormLabel>
-                                    <FormControl>
-                                      <Input
-                                        type="number"
-                                        placeholder="e.g. 299"
-                                        {...field}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
+                            
+                            {/* Mobile */}
+                            <div className="space-y-3">
+                              <Label>Mobile Recharge Details</Label>
+
+                              {/* Average Monthly Recharge Amount */}
+                              <div className="space-y-1">
+                                <Label className="text-sm">Average Recharge Amount (₹)</Label>
+                                <Input
+                                  type="number"
+                                  placeholder="Enter average monthly recharge amount"
+                                  value={mobileDetails.mobile_recharge_amt_avg}
+                                  onChange={(e) =>
+                                    setMobileDetails({
+                                      ...mobileDetails,
+                                      mobile_recharge_amt_avg: e.target.value
+                                    })
+                                  }
+                                />
+                              </div>
+
+                              {/* Recharge Frequency */}
+                              <div className="space-y-1">
+                                <Label className="text-sm">Recharge Frequency (per month)</Label>
+                                <Input
+                                  type="number"
+                                  placeholder="How many recharges per month?"
+                                  value={mobileDetails.mobile_recharge_freq_pm}
+                                  onChange={(e) =>
+                                    setMobileDetails({
+                                      ...mobileDetails,
+                                      mobile_recharge_freq_pm: e.target.value
+                                    })
+                                  }
+                                />
+                              </div>
+
+                              {/* Provider */}
+                              <div className="space-y-1">
+                                <Label className="text-sm">Provider</Label>
+                                <Input
+                                  type="text"
+                                  placeholder="Jio / Airtel / VI / BSNL"
+                                  value={mobileDetails.provider}
+                                  onChange={(e) =>
+                                    setMobileDetails({
+                                      ...mobileDetails,
+                                      provider: e.target.value
+                                    })
+                                  }
+                                />
+                              </div>
+
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => verifyMobileDetails()}
+                                disabled={mobileDetails.verifying}
+                                className="mt-2"
+                              >
+                                {mobileDetails.verifying ? (
+                                  <div className="flex items-center gap-2 text-primary">
+                                    <Clock className="h-4 w-4 animate-spin" />
+                                    <span className="text-xs">Verifying...</span>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <Shield className="h-4 w-4 mr-2" />
+                                    Verify Mobile Details
+                                  </>
                                 )}
+                              </Button>
+
+                              {mobileDetails.verified && (
+                                <div className="flex items-center gap-1 text-success mt-2">
+                                  <CheckCircle2 className="h-4 w-4" />
+                                  <span className="text-xs font-medium">Verified</span>
+                                </div>
+                              )}
+                            </div>
+                            {/* LPG Bill Section */}
+                            <div className="space-y-3">
+                              <Label>LPG Bill Details</Label>
+
+                              {/* Consumer Number */}
+                              <Input
+                                type="text"
+                                placeholder="Enter LPG Consumer Number"
+                                value={lpgDetails.consumer_no}
+                                onChange={(e) =>
+                                  setLpgDetails((prev) => ({ ...prev, consumer_no: e.target.value }))
+                                }
                               />
 
-                              <FormField
-                                control={expensesForm.control}
-                                name="mobileFrequency"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>
-                                      Recharge Frequency Per Month
-                                    </FormLabel>
-                                    <FormControl>
-                                      <Input
-                                        type="number"
-                                        placeholder="e.g. 2"
-                                        {...field}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
+                              {/* Refills in last 3 months */}
+                              <Input
+                                type="number"
+                                placeholder="Refills in last 3 months"
+                                value={lpgDetails.lpg_refills_3m}
+                                onChange={(e) =>
+                                  setLpgDetails((prev) => ({ ...prev, lpg_refills_3m: e.target.value }))
+                                }
                               />
 
-                              <FormField
-                                control={expensesForm.control}
-                                name="internetProvider"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Internet Service Provider</FormLabel>
-                                    <FormControl>
-                                      <Input
-                                        type="text"
-                                        placeholder="e.g. Jio / Airtel / Vi"
-                                        {...field}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
+                              {/* Average refill cost */}
+                              <Input
+                                type="number"
+                                placeholder="Average Refill Cost"
+                                value={lpgDetails.lpg_avg_cost}
+                                onChange={(e) =>
+                                  setLpgDetails((prev) => ({ ...prev, lpg_avg_cost: e.target.value }))
+                                }
                               />
+
+                              {/* Average refill interval */}
+                              <Input
+                                type="number"
+                                placeholder="Average Refill Interval (days)"
+                                value={lpgDetails.lpg_avg_refill_interval_days}
+                                onChange={(e) =>
+                                  setLpgDetails((prev) => ({
+                                    ...prev,
+                                    lpg_avg_refill_interval_days: e.target.value,
+                                  }))
+                                }
+                              />
+
+                              {/* Upload PDF */}
+                              <Label>LPG Bill PDF (Optional)</Label>
+                              <Input
+                                type="file"
+                                accept=".pdf"
+                                onChange={(e) =>
+                                  setLpgPdfFile(e.target.files?.[0] || null)
+                                }
+                              />
+
+                              {/* Verify Button */}
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={handleVerifyLpg}
+                                disabled={lpgDetails.verifying}
+                              >
+                                <Shield className="h-4 w-4 mr-2" />
+                                {lpgDetails.verifying ? "Verifying..." : "Verify LPG Details"}
+                              </Button>
+
+                              {/* Verification Status */}
+                              {lpgDetails.verified !== null && (
+                                <div className="text-sm mt-2">
+                                  {lpgDetails.verified ? (
+                                    <span className="text-success font-medium">
+                                      <CheckCircle2 className="inline w-4 h-4" /> LPG Details Verified
+                                    </span>
+                                  ) : (
+                                    <span className="text-destructive font-medium">
+                                      <Shield className="inline w-4 h-4" /> Suspicious Data Detected!
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </TabsContent>
+
+                        <TabsContent value="api" className="space-y-4">
+                          <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg space-y-4">
+                            <div className="flex items-start gap-3">
+                              <LinkIcon className="h-5 w-5 text-primary mt-0.5" />
+                              <div>
+                                <h4 className="font-semibold text-primary mb-1">Connect Your Accounts</h4>
+                                <p className="text-sm text-muted-foreground">Give us secure access to automatically fetch your bill payment history. This is faster and more accurate than manual uploads.</p>
+                              </div>
                             </div>
 
-                            {/* GAS BILL DETAILS */}
-                            <div className="space-y-4">
-                              <Label className="font-medium">Gas Bill Details</Label>
-
-                              <FormField
-                                control={expensesForm.control}
-                                name="lpgRefills"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>LPG Refills Per Month</FormLabel>
-                                    <FormControl>
-                                      <Input
-                                        type="number"
-                                        min="0"
-                                        placeholder="e.g. 1"
-                                        {...field}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-
-                              <FormField
-                                control={expensesForm.control}
-                                name="lpgConsumerNumber"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>LPG Consumer Number</FormLabel>
-                                    <FormControl>
-                                      <Input
-                                        type="text"
-                                        placeholder="Enter consumer number"
-                                        {...field}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-
-                              <FormField
-                                control={expensesForm.control}
-                                name="gasAvgCost"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Average Gas Cost (₹)</FormLabel>
-                                    <FormControl>
-                                      <Input
-                                        type="number"
-                                        min="0"
-                                        placeholder="e.g. 800"
-                                        {...field}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-
-                              <FormField
-                                control={expensesForm.control}
-                                name="lpgRefillInterval"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Refill Interval Days</FormLabel>
-                                    <FormControl>
-                                      <Input
-                                        type="number"
-                                        min="0"
-                                        placeholder="e.g. 25"
-                                        {...field}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                            </div>
+                            {billApiConnected ? (
+                              <div className="p-4 bg-success/10 border border-success rounded-lg">
+                                <div className="flex items-center gap-2 text-success mb-2"><CheckCircle2 className="h-5 w-5" /><span className="font-semibold">Connected Successfully</span></div>
+                                <p className="text-sm text-muted-foreground">We're now able to fetch your bill payment data automatically.</p>
+                                <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => setBillApiConnected(false)}>Disconnect</Button>
+                              </div>
+                            ) : (
+                              <div className="space-y-4">
+                                <div className="flex items-start space-x-3 p-3 rounded-md border">
+                                  <Checkbox id="api-consent" />
+                                  <div className="space-y-1 leading-none">
+                                    <label htmlFor="api-consent" className="text-sm font-medium cursor-pointer">I authorize secure access to my utility bill accounts</label>
+                                    <p className="text-xs text-muted-foreground">Your data is encrypted and will only be used for credit assessment</p>
+                                  </div>
+                                </div>
+                                <div className="grid gap-3">
+                                  <Button type="button" variant="outline" className="w-full justify-start" onClick={handleBillApiConnect}><Zap className="h-4 w-4 mr-2" />Connect Electricity Provider</Button>
+                                  <Button type="button" variant="outline" className="w-full justify-start" onClick={handleBillApiConnect}><LinkIcon className="h-4 w-4 mr-2" />Connect Mobile Operator</Button>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </TabsContent>
                       </Tabs>

@@ -23,27 +23,29 @@ export const Header = () => {
   
 
   return (
-    <header
-  className="
-     fixed top-0 left-0 right-0
+    <header className="fixed top-0 left-0 right-0
     z-50
     h-16
     border-b border-border
-    bg-background   /* fully opaque background */
-  "
->
-  <div className="container mx-auto px-4">
-    <div className="flex h-16 items-center justify-between">
-      {/* Logo */}
-      <Link to="/" className="flex items-center gap-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-gov">
-          <div className="text-2xl font-bold text-primary-foreground">N</div>
-        </div>
-        <div className="hidden md:block">
-          <div className="text-sm font-semibold text-primary">National Backward Classes</div>
-          <div className="text-xs text-muted-foreground">Finance & Development Corporation</div>
-        </div>
-      </Link>
+    bg-background   /* fully opaque background */">
+      <div className="container mx-auto px-4">
+        <div className="flex h-16 items-center justify-between">
+          {/* Logo and Title */}
+          <Link to="/" className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full overflow-hidden">
+              <img
+                src="/placeholder.svg"
+                alt="Logo"
+                className="h-full w-full object-cover"
+              />
+            </div>
+
+
+            <div className="hidden md:block">
+              <div className="text-sm font-semibold text-primary">National Backward Classes</div>
+              <div className="text-xs text-muted-foreground">Finance & Development Corporation</div>
+            </div>
+          </Link>
 
       {/* Nav */}
       <nav className="hidden md:flex items-center gap-6">

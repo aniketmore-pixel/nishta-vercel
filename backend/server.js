@@ -2,6 +2,7 @@
 
 const rationRoutes = require("./routes/ration");
 const electricityRoutes = require("./routes/electricity.js");
+const lpgRoutes = require("./routes/lpg.js");
 const eligibilityRoutes = require("./routes/eligibility.js")
 
 require("dotenv").config();
@@ -249,6 +250,13 @@ app.post("/api/submit-profile", async (req, res) => {
 app.use("/api", eligibilityRoutes);
 app.use("/api", rationRoutes);
 
+const mobileRoutes = require("./routes/mobile.js");
+app.use("/api/mobile", mobileRoutes);
+
+const beneficiaryRoutes = require("./routes/beneficiary.js");
+app.use("/api/beneficiary", beneficiaryRoutes);
+
+app.use("/api/lpg", lpgRoutes);
 
 // ---------------------
 // Start Server

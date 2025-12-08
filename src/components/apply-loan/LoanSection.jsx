@@ -1,0 +1,180 @@
+// src/components/apply-loan/LoanSection.jsx
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { AlertCircle } from "lucide-react";
+
+export const LoanSection = ({
+  form,
+  onSubmit,
+  LOAN_THRESHOLD,
+  loanAmount,
+  setLoanAmount,
+  showExpensesForLoan,
+  selectedSchemeName,
+}) => {
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <div className="p-4 bg-primary/5 rounded-lg border border-primary/10">
+          <p className="text-sm font-medium text-primary mb-2">
+            💰 Loan Eligibility Calculator
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {selectedSchemeName
+              ? `You’re applying under the "${selectedSchemeName}" scheme. Enter your desired loan amount and purpose. For amounts above ₹1 Lakh, we’ll ask for a bit more detail about your expenses.`
+              : "Enter your desired loan amount and purpose. For amounts above ₹1 Lakh, additional expense details will be required."}
+          </p>
+        </div>
+
+        <FormField
+          control={form.control}
+          name="loanAmount"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Desired Loan Amount (₹) *</FormLabel>
+              <FormControl>
+                <Input
+                  type="number"
+                  placeholder="Enter amount (e.g., 50100)"
+                  {...field}
+                  onChange={(e) => {
+                    field.onChange(e);
+                    const amount = parseFloat(e.target.value) || 0;
+                    setLoanAmount(amount);
+                  }}
+                />
+              </FormControl>
+              <p className="text-xs text-muted-foreground">
+                {loanAmount > LOAN_THRESHOLD ? (
+                  <span className="text-accent font-medium">
+                    ⚠️ Amount above ₹{(LOAN_THRESHOLD / 1000).toFixed(0)}K - Additional
+                    details required
+                  </span>
+                ) : (
+                  <span className="text-success font-medium">
+                    ✓ Amount within basic eligibility
+                  </span>
+                )}
+              </p>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="desiredTenure"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Desired Tenure (in months) *</FormLabel>
+              <FormControl>
+                <Input type="number" placeholder="e.g., 12, 24, 36" {...field} />
+              </FormControl>
+              <p className="text-xs text-muted-foreground">
+                Choose the repayment duration you are comfortable with.
+              </p>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="purpose"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Purpose of Loan *</FormLabel>
+              <FormControl>
+                <Textarea
+                  placeholder="Describe how you will use this loan (e.g., business expansion, medical expenses, education)"
+                  className="min-h-[100px]"
+                  {...field}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {showExpensesForLoan && loanAmount > LOAN_THRESHOLD && (
+          <div className="space-y-6 p-6 border-2 border-accent rounded-lg bg-accent/5">
+            <div className="flex items-center gap-2 text-accent">
+              <AlertCircle className="h-5 w-5" />
+              <h3 className="font-semibold">
+                Additional Financial Information Required
+              </h3>
+            </div>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Monthly Household Expenses (₹) *</Label>
+                <Input type="number" placeholder="e.g., 15010" required />
+              </div>
+              <div className="space-y-2">
+                <Label>Monthly Business Expenses (₹)</Label>
+                <Input type="number" placeholder="e.g., 10000" />
+              </div>
+              <div className="space-y-2">
+                <Label>Existing Loan Repayments (₹/month)</Label>
+                <Input type="number" placeholder="e.g., 5010" />
+              </div>
+              <div className="space-y-2">
+                <Label>Electricity Bill (₹/month)</Label>
+                <Input type="number" placeholder="e.g., 1200" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Commodities Owned</Label>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {[
+                  "TV",
+                  "Refrigerator",
+                  "Washing Machine",
+                  "Two-Wheeler",
+                  "Four-Wheeler",
+                  "Tractor",
+                ].map((item) => (
+                  <div key={item} className="flex items-center space-x-2">
+                    <Checkbox id={`loan-${item}`} />
+                    <label
+                      htmlFor={`loan-${item}`}
+                      className="text-sm cursor-pointer"
+                    >
+                      {item}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="p-4 bg-muted rounded-lg">
+          <p className="text-sm text-muted-foreground">
+            💡 Tip: Make sure all previous profile sections are completed for
+            faster loan approval, especially when applying under a specific scheme
+            like{" "}
+            {selectedSchemeName
+              ? `"${selectedSchemeName}".`
+              : "NBCFDC concessional schemes."}
+          </p>
+        </div>
+
+        <Button type="submit" className="w-full" size="lg">
+          Submit Loan Application
+        </Button>
+      </form>
+    </Form>
+  );
+};

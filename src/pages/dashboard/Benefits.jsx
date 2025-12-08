@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+
 
 const nbcfdcSchemes = [
   {
@@ -113,8 +114,31 @@ Repayment is usually completed within about 4 years, depending on the MFI’s po
 ];
 
 const Benefits = () => {
+  // new
+  const [eligible, setEligible] = useState(false);
+
   const [selectedScheme, setSelectedScheme] = React.useState(null);
   const [consent, setConsent] = React.useState(false);
+
+  // new
+  useEffect(() => {
+    // check eligibility on mount
+    const checkEligibility = async () => {
+      const aadhar_no = localStorage.getItem("aadhar_no");
+      if (!aadhar_no) return; 
+
+      try {
+        const res = await fetch(`http://localhost:5010/api/eligible-beneficiary/${aadhar_no}`);
+        const data = await res.json();
+        setEligible(data.success && data.eligibility_status);
+      } catch (err) {
+        console.error("Eligibility check failed:", err);
+        setEligible(false);
+      }
+    };
+
+    checkEligibility();
+  }, []);
 
   const handleCardApplyClick = (scheme) => {
     setSelectedScheme(scheme);
@@ -192,6 +216,7 @@ const Benefits = () => {
                   className="w-full mt-2"
                   size="sm"
                   onClick={() => handleCardApplyClick(scheme)}
+                  disabled={!eligible}
                 >
                   Apply Now
                 </Button>

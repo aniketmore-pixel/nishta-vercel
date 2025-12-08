@@ -1102,6 +1102,7 @@ const basicProfileSchema = z.object({
   yearlyIncome: z.string().optional(),
   casteCertificateNumber: z.string().optional(),
   registrationDate: z.string().optional(),
+  region: z.string().optional(),
 });
 
 /* -----------------------------
@@ -1123,6 +1124,7 @@ const Profile = () => {
       district: "",
       state: "",
       occupation: "",
+      region: "",
       yearlyIncome: "",
       casteCertificateNumber: "",
       registrationDate: new Date().toISOString().split("T")[0],
@@ -1145,7 +1147,7 @@ const Profile = () => {
     const fieldsToCheck = [
       "fullName", "aadhaar", "age", "gender", "mobile",
       "registrationDate", "state", "district", "address",
-      "occupation", "yearlyIncome", "casteCertificateNumber"
+      "occupation", "region", "yearlyIncome", "casteCertificateNumber"
     ];
 
     const filledCount = fieldsToCheck.reduce((acc, field) => {
@@ -1177,6 +1179,7 @@ const Profile = () => {
     occupation: useRef(null),
     yearlyIncome: useRef(null),
     casteCertificateNumber: useRef(null),
+    region: useRef(null),
   };
 
   /* ---------------------------
@@ -1247,16 +1250,16 @@ const Profile = () => {
     const loadProfileWithCaste = async () => {
       const aadhar = localStorage.getItem("aadhar_no");
       if (!aadhar) return;
-  
+
       try {
         // Fetch caste first
         const casteRes = await axios.get(`http://localhost:5010/api/eligible-beneficiary/caste/${aadhar}`);
         const casteNumber = casteRes.data?.data?.caste_certificate_number || "";
-  
+
         // Fetch full profile
         const profileRes = await axios.get(`http://localhost:5010/api/beneficiary/${aadhar}`);
         const data = profileRes.data || {};
-  
+
         // Reset the form once with all values
         reset({
           fullName: data.full_name || "",
@@ -1267,12 +1270,13 @@ const Profile = () => {
           address: data.address || "",
           district: data.district || "",
           state: data.state || "",
+          region: data.region || "",
           occupation: data.occupation || "",
           yearlyIncome: data.income_yearly !== undefined ? String(data.income_yearly) : "",
           casteCertificateNumber: casteNumber,
           registrationDate: data.registration_date || new Date().toISOString().split("T")[0],
         });
-  
+
         if (casteNumber) setAlreadySubmitted(true); // disable submit if already present
       } catch (err) {
         console.error("Error loading profile with caste:", err);
@@ -1280,10 +1284,10 @@ const Profile = () => {
         setLoading(false);
       }
     };
-  
+
     loadProfileWithCaste();
   }, [reset]);
-  
+
 
 
   /* ---------------------------
@@ -1343,6 +1347,7 @@ const Profile = () => {
           address: data.address || "",
           district: data.district || "",
           state: data.state || "",
+          region: data.region || "",
           occupation: data.occupation || "",
           yearlyIncome: data.income_yearly !== undefined ? String(data.income_yearly) : "",
           casteCertificateNumber: data.caste_certificate_number || "",
@@ -1615,6 +1620,30 @@ const Profile = () => {
                   <p className="text-red-500 text-sm">{errors.occupation.message}</p>
                 )}
               </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium">Region</label>
+
+                <select
+                  {...register("region", { required: true })}
+                  ref={(el) => {
+                    const r = register("region").ref;
+                    if (typeof r === "function") r(el);
+                    else if (r && typeof r === "object") r.current = el;
+                    domRefs.region.current = el;
+                  }}
+                  className="border rounded-md p-2"
+                >
+                  <option value="">Select Region</option>
+                  <option value="Rural">Rural</option>
+                  <option value="Urban">Urban</option>
+                </select>
+
+                {errors.region?.message && (
+                  <p className="text-red-500 text-sm">{errors.region.message}</p>
+                )}
+              </div>
+
 
               <StyledInput
                 label="Yearly Income (₹)"

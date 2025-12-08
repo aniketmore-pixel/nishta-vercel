@@ -112,16 +112,65 @@ app.get("/api/user/profile", authMiddleware, async (req, res) => {
   }
 });
 
+// app.get("/api/beneficiary/:aadhar", async (req, res) => {
+//   let { aadhar } = req.params;
+//   aadhar = aadhar.trim(); // remove extra spaces
+//   console.log("[BENEFICIARY] Requested Aadhaar:", aadhar);
+
+//   try {
+//     const { data, error } = await supabase
+//       .from("beneficiary")
+//       .select(
+//         `
+//         full_name,
+//         age,
+//         gender,
+//         phone_no,
+//         address,
+//         income_yearly,
+//         state,
+//         district,
+//         occupation,
+//         registration_date
+//       `
+//       )
+//       .eq("aadhar_no", aadhar)
+//       .single();
+
+//     if (error || !data) {
+//       console.error("[BENEFICIARY] Supabase error or no data:", error);
+//       return res.status(404).json({ error: "Beneficiary not found" });
+//     }
+
+//     console.log("[BENEFICIARY] Fetched data:", data);
+//     res.json(data);
+//   } catch (err) {
+//     console.error("[BENEFICIARY] Server error:", err);
+//     res.status(500).json({ error: "Server error" });
+//   }
+// });
+
+// In your backend (e.g., server.js or routes/beneficiary.js)
+// Assuming you are using 'pg' pool for database connection
+
 app.get("/api/beneficiary/:aadhar", async (req, res) => {
   let { aadhar } = req.params;
-  aadhar = aadhar.trim(); // remove extra spaces
-  console.log("[BENEFICIARY] Requested Aadhaar:", aadhar);
+  aadhar = aadhar.trim();
+
+  console.log("\n==============================");
+  console.log("[BENEFICIARY GET] Request Received");
+  console.log("Aadhaar:", aadhar);
+  console.log("==============================");
 
   try {
-    const { data, error } = await supabase
+    // -----------------------------------------
+    // 1️⃣ Fetch basic beneficiary data
+    // -----------------------------------------
+    console.log("\n[BENEFICIARY GET] Fetching Beneficiary Data...");
+
+    const { data: benData, error: benErr } = await supabase
       .from("beneficiary")
-      .select(
-        `
+      .select(`
         full_name,
         age,
         gender,
@@ -132,26 +181,61 @@ app.get("/api/beneficiary/:aadhar", async (req, res) => {
         district,
         occupation,
         registration_date
-      `
-      )
+      `)
       .eq("aadhar_no", aadhar)
       .single();
 
-    if (error || !data) {
-      console.error("[BENEFICIARY] Supabase error or no data:", error);
+    console.log("[BENEFICIARY GET] Supabase Beneficiary Response:");
+    console.log("Error:", benErr);
+    console.log("Data Returned:", benData);
+
+    if (benErr || !benData) {
+      console.error("[BENEFICIARY GET] Beneficiary NOT FOUND.");
       return res.status(404).json({ error: "Beneficiary not found" });
     }
 
-    console.log("[BENEFICIARY] Fetched data:", data);
-    res.json(data);
+    // -----------------------------------------
+    // 2️⃣ Fetch region from eligible_beneficiary
+    // -----------------------------------------
+    console.log("\n[BENEFICIARY GET] Fetching Region...");
+
+    const { data: regionData, error: regionErr } = await supabase
+      .from("eligible_beneficiary")
+      .select("region")
+      .eq("aadhar_no", aadhar)
+      .maybeSingle();
+
+    console.log("[BENEFICIARY GET] Supabase Region Response:");
+    console.log("Error:", regionErr);
+    console.log("Data Returned:", regionData);
+
+    // If not found log it
+    if (!regionData || !regionData.region) {
+      console.log("[BENEFICIARY GET] No region found for this Aadhaar.");
+    } else {
+      console.log("[BENEFICIARY GET] Region Found:", regionData.region);
+    }
+
+    // -----------------------------------------
+    // 3️⃣ Merge both results
+    // -----------------------------------------
+    const finalResponse = {
+      ...benData,
+      region: regionData?.region || null,
+    };
+
+    console.log("\n[BENEFICIARY GET] FINAL RESPONSE SENT TO CLIENT:");
+    console.log(finalResponse);
+    console.log("==============================================\n");
+
+    res.json(finalResponse);
+
   } catch (err) {
-    console.error("[BENEFICIARY] Server error:", err);
+    console.error("[BENEFICIARY GET] SERVER ERROR:", err);
     res.status(500).json({ error: "Server error" });
   }
 });
 
-// In your backend (e.g., server.js or routes/beneficiary.js)
-// Assuming you are using 'pg' pool for database connection
 
 app.post("/api/submit-profile", async (req, res) => {
   try {
@@ -168,6 +252,7 @@ app.post("/api/submit-profile", async (req, res) => {
       occupation,
       registrationDate,
       casteCertificateNumber,
+      region
     } = req.body;
 
     // 1️⃣ UPSERT beneficiary
@@ -235,6 +320,7 @@ app.post("/api/submit-profile", async (req, res) => {
             eligibility_status: true,
             occupation: occupation, // save occupation enum
             caste_certificate_number: casteCertificateNumber, // <<--- NEW
+            region: region
           },
           { onConflict: "aadhar_no" }
         );

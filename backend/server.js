@@ -172,7 +172,8 @@ app.get("/api/beneficiary/:aadhar", async (req, res) => {
 
     const { data: benData, error: benErr } = await supabase
       .from("beneficiary")
-      .select(`
+      .select(
+        `
         full_name,
         age,
         gender,
@@ -183,7 +184,8 @@ app.get("/api/beneficiary/:aadhar", async (req, res) => {
         district,
         occupation,
         registration_date
-      `)
+      `
+      )
       .eq("aadhar_no", aadhar)
       .single();
 
@@ -274,9 +276,13 @@ app.post("/api/submit-profile", async (req, res) => {
       },
       { onConflict: "aadhar_no" }
     );
+    
 
     if (benErr) {
       console.error("Beneficiary Upsert Error:", benErr);
+      return res
+        .status(500)
+        .json({ success: false, message: "Failed to update beneficiary" });
       return res
         .status(500)
         .json({ success: false, message: "Failed to update beneficiary" });
@@ -294,6 +300,9 @@ app.post("/api/submit-profile", async (req, res) => {
       return res
         .status(500)
         .json({ success: false, message: "Failed to verify caste" });
+      return res
+        .status(500)
+        .json({ success: false, message: "Failed to verify caste" });
     }
 
     let isEligible = false;
@@ -303,6 +312,7 @@ app.post("/api/submit-profile", async (req, res) => {
       return res.json({
         success: true,
         isEligible: false,
+        message: "Profile updated. Caste certificate not found.",
         message: "Profile updated. Caste certificate not found.",
       });
     }
@@ -332,10 +342,15 @@ app.post("/api/submit-profile", async (req, res) => {
         return res
           .status(500)
           .json({ success: false, message: "Failed to update eligibility" });
+        return res
+          .status(500)
+          .json({ success: false, message: "Failed to update eligibility" });
       }
 
       message = "You are eligible! Proceed to loan application.";
     } else {
+      message =
+        "Profile updated. Based on your caste (General), you are not eligible.";
       message =
         "Profile updated. Based on your caste (General), you are not eligible.";
     }
@@ -343,6 +358,9 @@ app.post("/api/submit-profile", async (req, res) => {
     return res.json({ success: true, isEligible, message });
   } catch (err) {
     console.error("Server Error:", err);
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal server error" });
     return res
       .status(500)
       .json({ success: false, message: "Internal server error" });

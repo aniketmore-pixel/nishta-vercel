@@ -2,13 +2,13 @@ const rationRoutes = require("./routes/ration");
 const electricityRoutes = require("./routes/electricity.js");
 const lpgRoutes = require("./routes/lpg.js");
 const eligibilityRoutes = require("./routes/eligibility.js");
+const applicationRoutes = require("./routes/applicationRoutes.js");
 
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const { createClient } = require("@supabase/supabase-js");
 const jwt = require("jsonwebtoken");
-
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -271,8 +271,9 @@ app.use("/api/beneficiary", beneficiaryRoutes);
 
 app.use("/api/lpg", lpgRoutes);
 
+app.use("/api", applicationRoutes);
 // ---------------------
 // Start Server
 // ---------------------
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5010;
 app.listen(PORT, () => console.log(`[SERVER] Running on port ${PORT}`));

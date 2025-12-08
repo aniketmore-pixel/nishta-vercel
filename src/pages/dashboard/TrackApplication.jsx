@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Card,
   CardContent,
@@ -14,215 +14,318 @@ import {
   Clock,
   XCircle,
   AlertCircle,
-  TrendingUp,
+  UserCheck,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
-const applications = [
+// Demo data – in real app, you will fetch this from API
+const applicationsData = [
   {
     id: "#NB2025001234",
-    amount: "₹3,00,000",
     appliedDate: "15 Sep 2025",
-    status: "Approved",
-    progress: 100,
-    reason:
-      "Strong repayment history and stable income source. Credit score above threshold.",
-    statusColor: "success",
-    timeline: [
-      { step: "Application Submitted", date: "15 Sep 2025", completed: true },
-      { step: "Document Verification", date: "16 Sep 2025", completed: true },
-      { step: "Credit Score Assessment", date: "17 Sep 2025", completed: true },
-      { step: "Final Approval", date: "18 Sep 2025", completed: true },
-      { step: "Loan Disbursed", date: "19 Sep 2025", completed: true },
-    ],
+    schemeName: "Micro Business Loan – General Scheme",
+    status: "Approved", // "Approved" | "Rejected" | "Under Review"
+    loanAmountApplied: "₹3,00,000",
+    tenureApplied: "36 months",
+    loanAmountApproved: "₹2,80,000",
+    tenureApproved: "30 months",
+    physicalInterventionRequired: false,
+    offerStatus: "Pending", // "Pending" | "Accepted" | "Rejected"
   },
   {
     id: "#NB2025001567",
-    amount: "₹2,00,000",
     appliedDate: "28 Sep 2025",
+    schemeName: "Education Support Loan",
     status: "Under Review",
-    progress: 65,
-    reason:
-      "Document verification in progress. Expected decision in 2-3 working days.",
-    statusColor: "accent",
-    timeline: [
-      { step: "Application Submitted", date: "28 Sep 2025", completed: true },
-      { step: "Document Verification", date: "29 Sep 2025", completed: true },
-      {
-        step: "Credit Score Assessment",
-        date: "In Progress",
-        completed: false,
-      },
-      { step: "Final Approval", date: "Pending", completed: false },
-      { step: "Loan Disbursement", date: "Pending", completed: false },
-    ],
+    loanAmountApplied: "₹2,00,000",
+    tenureApplied: "24 months",
+    loanAmountApproved: null,
+    tenureApproved: null,
+    physicalInterventionRequired: true,
+    physicalInterventionNote:
+      "Field officer visit scheduled for income and business verification.",
+    offerStatus: null,
   },
   {
     id: "#NB2025010891",
-    amount: "₹5,00,000",
     appliedDate: "10 Aug 2025",
+    schemeName: "Small Entrepreneur Loan",
     status: "Rejected",
-    progress: 50,
-    reason:
-      "Insufficient income documentation. Monthly income below minimum threshold of ₹20,000 for requested amount. Recommendation: Apply for lower amount or submit additional income proof.",
-    statusColor: "destructive",
-    timeline: [
-      { step: "Application Submitted", date: "10 Aug 2025", completed: true },
-      { step: "Document Verification", date: "11 Aug 2025", completed: true },
-      { step: "Credit Score Assessment", date: "12 Aug 2025", completed: true },
-      { step: "Application Rejected", date: "13 Aug 2025", completed: true },
-    ],
+    loanAmountApplied: "₹5,00,000",
+    tenureApplied: "48 months",
+    loanAmountApproved: null,
+    tenureApproved: null,
+    rejectionReason:
+      "Income level below minimum threshold for requested loan amount. You may re-apply with lower amount or updated income documents.",
+    physicalInterventionRequired: false,
+    offerStatus: null,
   },
 ];
 
+const getStatusBadgeClasses = (status) => {
+  switch (status) {
+    case "Approved":
+      return "bg-emerald-100 text-emerald-700 border border-emerald-200";
+    case "Rejected":
+      return "bg-red-100 text-red-700 border border-red-200";
+    case "Under Review":
+      return "bg-amber-100 text-amber-700 border border-amber-200";
+    default:
+      return "bg-muted text-muted-foreground";
+  }
+};
+
+const getStatusIcon = (status) => {
+  if (status === "Approved") {
+    return <CheckCircle2 className="h-3 w-3 mr-1" />;
+  }
+  if (status === "Rejected") {
+    return <XCircle className="h-3 w-3 mr-1" />;
+  }
+  if (status === "Under Review") {
+    return <Clock className="h-3 w-3 mr-1" />;
+  }
+  return null;
+};
+
+const getStatusProgress = (status) => {
+  if (status === "Approved") return 100;
+  if (status === "Rejected") return 100;
+  if (status === "Under Review") return 60;
+  return 30;
+};
+
 const TrackApplication = () => {
+  const [applications, setApplications] = useState(applicationsData);
+
+  const handleOfferDecision = (id, decision) => {
+    // decision: "Accepted" | "Rejected"
+    setApplications((prev) =>
+      prev.map((app) =>
+        app.id === id ? { ...app, offerStatus: decision } : app
+      )
+    );
+
+    // TODO: Call your backend API here with id + decision
+    // await axios.post("/api/loan/offer-decision", { id, decision })
+  };
+
   return (
     <div className="container mx-auto px-4 py-8 pt-20">
-      {" "}
       <div className="mb-8">
-        {" "}
         <h1 className="text-3xl font-bold text-primary mb-2">
-          Track Your Applications
-        </h1>{" "}
+          Track Your Loan Applications
+        </h1>
         <p className="text-muted-foreground">
-          Monitor the status of all your loan applications
-        </p>{" "}
+          View the status of your applications, approved amounts and final
+          offers.
+        </p>
       </div>
+
       <div className="space-y-6">
-        {applications.map((app) => (
-          <Card key={app.id} className="shadow-card">
-            <CardHeader>
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    Loan Application
-                  </CardTitle>
-                  <CardDescription className="mt-1">
-                    Applied on {app.appliedDate} • Loan ID: {app.id}
-                  </CardDescription>
-                </div>
-                <div className="text-right">
-                  <Badge
-                    className={
-                      app.statusColor === "success"
-                        ? "bg-success"
-                        : app.statusColor === "accent"
-                        ? "bg-accent/10 text-accent border-accent"
-                        : "bg-destructive"
-                    }
-                    variant={
-                      app.statusColor === "accent" ? "outline" : "default"
-                    }
-                  >
-                    {app.status === "Approved" && (
-                      <CheckCircle2 className="h-3 w-3 mr-1" />
-                    )}
-                    {app.status === "Under Review" && (
-                      <Clock className="h-3 w-3 mr-1" />
-                    )}
-                    {app.status === "Rejected" && (
-                      <XCircle className="h-3 w-3 mr-1" />
-                    )}
-                    {app.status}
-                  </Badge>
-                  <p className="text-lg font-bold text-primary mt-1">
-                    {app.amount}
-                  </p>
-                </div>
-              </div>
-              <Progress value={app.progress} className="h-2" />
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Status Reason */}
-              <div
-                className={`p-4 rounded-lg border ${
-                  app.statusColor === "success"
-                    ? "bg-success/10 border-success/20"
-                    : app.statusColor === "accent"
-                    ? "bg-accent/10 border-accent/20"
-                    : "bg-destructive/10 border-destructive/20"
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  {app.statusColor === "success" && (
-                    <CheckCircle2 className="h-5 w-5 text-success flex-shrink-0 mt-0.5" />
-                  )}
-                  {app.statusColor === "accent" && (
-                    <Clock className="h-5 w-5 text-accent flex-shrink-0 mt-0.5" />
-                  )}
-                  {app.statusColor === "destructive" && (
-                    <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
-                  )}
-                  <div className="text-sm">
-                    <p className="font-medium mb-1">
-                      {app.status === "Approved"
-                        ? "Approval Reason"
-                        : app.status === "Under Review"
-                        ? "Current Status"
-                        : "Reason for Disapproval"}
-                    </p>
-                    <p
-                      className={
-                        app.statusColor === "success"
-                          ? "text-success/90"
-                          : app.statusColor === "accent"
-                          ? "text-accent/90"
-                          : "text-destructive/90"
-                      }
-                    >
-                      {app.reason}
+        {applications.map((app) => {
+          const progressValue = getStatusProgress(app.status);
+
+          return (
+            <Card key={app.id} className="shadow-card">
+              <CardHeader className="border-b pb-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="h-5 w-5" />
+                      Loan Application
+                    </CardTitle>
+                    <CardDescription className="mt-1">
+                      Loan ID:{" "}
+                      <span className="font-medium text-foreground">
+                        {app.id}
+                      </span>{" "}
+                      • Applied on {app.appliedDate}
+                    </CardDescription>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Scheme Applied:{" "}
+                      <span className="font-medium text-foreground">
+                        {app.schemeName}
+                      </span>
                     </p>
                   </div>
-                </div>
-              </div>
 
-              {/* Timeline */}
-              <div>
-                <h4 className="font-medium mb-4">Application Timeline</h4>
-                <div className="space-y-4">
-                  {app.timeline.map((item, index) => (
-                    <div key={index} className="flex items-start gap-4">
-                      <div
-                        className={`h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                          item.completed ? "bg-success" : "bg-muted"
-                        }`}
-                      >
-                        {item.completed ? (
-                          <CheckCircle2 className="h-4 w-4 text-white" />
-                        ) : (
-                          <Clock className="h-4 w-4 text-muted-foreground" />
-                        )}
-                      </div>
-                      <div className="flex-1 pb-4">
-                        <p className="font-medium text-sm">{item.step}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {item.date}
+                  <div className="text-right space-y-2">
+                    <Badge className={getStatusBadgeClasses(app.status)}>
+                      {getStatusIcon(app.status)}
+                      {app.status}
+                    </Badge>
+
+                    <div className="text-sm">
+                      <p className="text-xs text-muted-foreground">
+                        Loan Amount Applied
+                      </p>
+                      <p className="font-semibold text-primary">
+                        {app.loanAmountApplied}
+                      </p>
+                    </div>
+
+                    {app.loanAmountApproved && (
+                      <div className="text-sm">
+                        <p className="text-xs text-muted-foreground">
+                          Loan Amount Approved
+                        </p>
+                        <p className="font-semibold text-emerald-600">
+                          {app.loanAmountApproved}
                         </p>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Recommendation for Rejected */}
-              {app.status === "Rejected" && (
-                <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
-                  <div className="flex items-start gap-3">
-                    <TrendingUp className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-                    <div className="text-sm">
-                      <p className="font-medium mb-1">What's Next?</p>
-                      <ul className="text-muted-foreground space-y-1 list-disc list-inside">
-                        <li>Complete your income documentation</li>
-                        <li>Apply for a lower loan amount (₹2-3 Lakhs)</li>
-                        <li>Improve your credit score by completing profile</li>
-                      </ul>
-                    </div>
+                    )}
                   </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
+
+                <div className="mt-4">
+                  <Progress value={progressValue} className="h-2" />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {app.status === "Approved" &&
+                      "Your application has been approved. Please review and accept the final offer."}
+                    {app.status === "Rejected" &&
+                      "Your application has been rejected. See below for details."}
+                    {app.status === "Under Review" &&
+                      "Your application is being evaluated by the admin team."}
+                  </p>
+                </div>
+              </CardHeader>
+
+              <CardContent className="space-y-5 pt-4">
+                {/* Core Details */}
+                <div className="grid gap-4 md:grid-cols-3 text-sm">
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">
+                      Loan Amount Applied
+                    </p>
+                    <p className="font-medium">{app.loanAmountApplied}</p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">
+                      Tenure Applied
+                    </p>
+                    <p className="font-medium">{app.tenureApplied}</p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">
+                      Scheme Applied
+                    </p>
+                    <p className="font-medium">{app.schemeName}</p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">
+                      Loan Amount Approved
+                    </p>
+                    <p className="font-medium">
+                      {app.loanAmountApproved || (
+                        <span className="text-muted-foreground">Not decided</span>
+                      )}
+                    </p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">
+                      Tenure Approved
+                    </p>
+                    <p className="font-medium">
+                      {app.tenureApproved || (
+                        <span className="text-muted-foreground">Not decided</span>
+                      )}
+                    </p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">
+                      Final Offer Status
+                    </p>
+                    <p className="font-medium flex items-center gap-1">
+                      <UserCheck className="h-4 w-4 text-muted-foreground" />
+                      {app.offerStatus
+                        ? app.offerStatus === "Accepted"
+                          ? "Offer Accepted"
+                          : "Offer Rejected"
+                        : app.status === "Approved"
+                        ? "Action Pending from You"
+                        : "Not Applicable"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Physical Intervention Block */}
+                {app.physicalInterventionRequired && (
+                  <div className="p-3 rounded-lg border border-amber-200 bg-amber-50 flex gap-3 items-start">
+                    <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                    <div className="text-sm">
+                      <p className="font-medium text-amber-800 mb-1">
+                        Physical Verification Required
+                      </p>
+                      <p className="text-amber-800/90">
+                        {app.physicalInterventionNote ||
+                          "A field officer will visit for physical verification as part of the assessment process."}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Rejection Reason */}
+                {app.status === "Rejected" && app.rejectionReason && (
+                  <div className="p-3 rounded-lg border border-red-200 bg-red-50 flex gap-3 items-start">
+                    <AlertCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+                    <div className="text-sm">
+                      <p className="font-medium text-red-800 mb-1">
+                        Reason for Rejection
+                      </p>
+                      <p className="text-red-800/90">{app.rejectionReason}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Final Offer Actions (only if Approved) */}
+                {app.status === "Approved" && (
+                  <div className="flex flex-col gap-2 border-t pt-4 mt-2">
+                    <p className="text-sm font-medium">
+                      Final Offer Confirmation
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Please review the approved loan amount and tenure. Once
+                      you accept, the loan will be processed for disbursement.
+                    </p>
+
+                    <div className="flex flex-wrap gap-3 mt-2">
+                      <Button
+                        size="sm"
+                        className="border-none"
+                        disabled={app.offerStatus === "Accepted"}
+                        onClick={() =>
+                          handleOfferDecision(app.id, "Accepted")
+                        }
+                      >
+                        {app.offerStatus === "Accepted"
+                          ? "Offer Accepted"
+                          : "Accept Offer"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={app.offerStatus === "Rejected"}
+                        onClick={() =>
+                          handleOfferDecision(app.id, "Rejected")
+                        }
+                      >
+                        {app.offerStatus === "Rejected"
+                          ? "Offer Rejected"
+                          : "Reject Offer"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );

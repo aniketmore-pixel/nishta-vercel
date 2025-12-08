@@ -11,17 +11,16 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { AlertCircle, ArrowRight, Shield } from "lucide-react";
 import { Link } from "react-router-dom";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 import { useEffect, useState } from "react";
 
-
 const Home = () => {
-  const creditScore = 68; // 0–100 from backend
-  const safeLoanAmount = 300000; // from backend (INR)
-  const estimatedIncome = 600000; // from backend (INR)
-
+  // ---------- BASIC USER INFO ----------
   const [fullName, setFullName] = useState("");
-
 
   useEffect(() => {
     const aadhar_no = localStorage.getItem("aadhar_no");
@@ -48,73 +47,169 @@ const Home = () => {
     fetchUser();
   }, []);
 
-   // 0–100 -> 300–900
-   const [userStatus, setUserStatus] = React.useState(null);
-   const normalized = Math.min(100, Math.max(0, creditScore ?? 0));
-   const cibilScore = Math.round(300 + (normalized / 100) * 600); // 300–900
- 
-   // Needle angle for semi-circle (-90° left to +90° right)
-   const progress = (cibilScore - 300) / 600; // 0–1
-   const minAngle = -90;
-   const maxAngle = 90;
-   const angle = minAngle + progress * (maxAngle - minAngle);
- 
-   // Risk band label
-   let riskLabel = "High Risk";
-   if (cibilScore >= 550 && cibilScore < 650) riskLabel = "Moderate Risk";
-   if (cibilScore >= 650 && cibilScore < 750) riskLabel = "Low Risk";
-   if (cibilScore >= 750) riskLabel = "Very Low Risk";
- 
-   const currencyFormatter = new Intl.NumberFormat("en-IN", {
-     style: "currency",
-     currency: "INR",
-     maximumFractionDigits: 0,
-   });
- 
-   const handleUpdateScore = () => {
-     // TODO: call backend to refresh credit score, safeLoanAmount, estimatedIncome
-     console.log("Update score clicked");
-   };
- 
- 
-   React.useEffect(() => {
-     const fetchStatus = async () => {
-       try {
-         const aadhaarNumber = localStorage.getItem("aadhar_no");
-         if (!aadhaarNumber) return;
- 
-         const res = await fetch(`http://localhost:5010/api/eligible-beneficiary/${aadhaarNumber}`);
-         const data = await res.json();
- 
-         // Only set userStatus if backend returns success
-         if (data.success) {
-           setUserStatus(data); // data has eligibility_status
-         } else {
-           setUserStatus(null);
-         }
- 
-       } catch (error) {
-         console.error("Error fetching caste verification:", error);
-       }
-     };
- 
-     fetchStatus();
-   }, []);
- 
- 
-   const profileCompletion = userStatus?.verified ? 100 : 75;
+  // ---------- CREDIT MODEL STATES ----------
+  // creditScore is 0–100 (coming from backend model)
+  const [creditScore, setCreditScore] = useState(null);
+  const [safeLoanAmount, setSafeLoanAmount] = useState(null);
+  const [estimatedIncome, setEstimatedIncome] = useState(null);
+  const [hasModelValues, setHasModelValues] = useState(false);
+  const [isLoadingScore, setIsLoadingScore] = useState(false);
+
+  // ---------- CASTE / ELIGIBILITY STATUS ----------
+  const [userStatus, setUserStatus] = useState(null);
+
+  // Helper: currency formatter
+  const currencyFormatter = new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  });
+
+  // ---------- FETCH APPLICATIONS (MODEL OUTPUTS) ----------
+  const fetchApplications = async (aadhaarNumber) => {
+    try {
+      setIsLoadingScore(true);
+      const res = await fetch(
+        `http://localhost:5010/api/applications/${aadhaarNumber}`
+      );
+      const data = await res.json();
+
+      if (data.success && Array.isArray(data.applications)) {
+        // TODO: adjust how you pick the "latest" application
+        // For now, taking the first one. You can sort by createdAt if needed.
+        const latestApp = data.applications[0];
+
+        if (latestApp) {
+          // TODO: adjust field names as per your backend response
+          const scoreFromBackend =
+            typeof latestApp.composite_score === "number"
+              ? latestApp.composite_score
+              : typeof latestApp.credit_score === "number"
+              ? latestApp.credit_score
+              : null;
+
+          const safeAmountFromBackend =
+            typeof latestApp.safe_loan_amount === "number"
+              ? latestApp.safe_loan_amount
+              : null;
+
+          const estimatedIncomeFromBackend =
+            typeof latestApp.estimated_income === "number"
+              ? latestApp.estimated_income
+              : null;
+
+          setCreditScore(scoreFromBackend);
+          setSafeLoanAmount(safeAmountFromBackend);
+          setEstimatedIncome(estimatedIncomeFromBackend);
+
+          // If all three are present, treat as "model generated"
+          if (
+            scoreFromBackend !== null &&
+            safeAmountFromBackend !== null &&
+            estimatedIncomeFromBackend !== null
+          ) {
+            setHasModelValues(true);
+          } else {
+            setHasModelValues(false);
+          }
+        } else {
+          // No applications
+          setCreditScore(null);
+          setSafeLoanAmount(null);
+          setEstimatedIncome(null);
+          setHasModelValues(false);
+        }
+      } else {
+        // No success or no applications
+        setCreditScore(null);
+        setSafeLoanAmount(null);
+        setEstimatedIncome(null);
+        setHasModelValues(false);
+      }
+    } catch (error) {
+      console.error("Error fetching applications:", error);
+      setCreditScore(null);
+      setSafeLoanAmount(null);
+      setEstimatedIncome(null);
+      setHasModelValues(false);
+    } finally {
+      setIsLoadingScore(false);
+    }
+  };
+
+  // Fetch caste verification status + applications on mount
+  useEffect(() => {
+    const aadhaarNumber = localStorage.getItem("aadhar_no");
+    if (!aadhaarNumber) return;
+
+    const fetchStatus = async () => {
+      try {
+        const res = await fetch(
+          `http://localhost:5010/api/eligible-beneficiary/${aadhaarNumber}`
+        );
+        const data = await res.json();
+
+        if (data.success) {
+          setUserStatus(data); // data has eligibility_status, verified, etc.
+        } else {
+          setUserStatus(null);
+        }
+      } catch (error) {
+        console.error("Error fetching caste verification:", error);
+      }
+    };
+
+    fetchStatus();
+    fetchApplications(aadhaarNumber);
+  }, []);
+
+  // ---------- CIBIL CONVERSION & RISK LABEL ----------
+  // If creditScore is null (no model yet), treat it as 0 so CIBIL becomes 300 (baseline)
+  const normalized = Math.min(100, Math.max(0, creditScore ?? 0));
+  const cibilScore = Math.round(300 + (normalized / 100) * 600); // 300–900
+
+  // Needle angle for semi-circle (-90° to +90°)
+ const progress = (cibilScore - 300) / 600; // 0–1
+// Keep needle slightly inside the arc so it never hides at extremes
+const minAngle = -85;
+const maxAngle = 85;
+const angle = minAngle + progress * (maxAngle - minAngle);
+
+
+  // Risk band label
+  let riskLabel = "High Risk";
+  if (!hasModelValues) {
+    riskLabel = "Not Generated Yet";
+  } else {
+    if (cibilScore >= 550 && cibilScore < 650) riskLabel = "Moderate Risk";
+    if (cibilScore >= 650 && cibilScore < 750) riskLabel = "Low Risk";
+    if (cibilScore >= 750) riskLabel = "Very Low Risk";
+  }
+
+  // ---------- PROFILE COMPLETION ----------
+  const profileCompletion = userStatus?.verified ? 100 : 75;
+
+  // ---------- UPDATE SCORE HANDLER ----------
+  const handleUpdateScore = () => {
+    // In future: call backend to refresh model, then refetch applications
+    const aadhaarNumber = localStorage.getItem("aadhar_no");
+    if (!aadhaarNumber) return;
+    fetchApplications(aadhaarNumber);
+  };
 
   return (
     <div className="container mx-auto px-4 py-8 pt-20">
       <div className="mb-8">
-      <h1 className="text-3xl font-bold text-primary mb-2">
+        <h1 className="text-3xl font-bold text-primary mb-2">
           Welcome back, {fullName || "User"}
         </h1>
-        <p className="text-muted-foreground">Your credit score and application overview</p>
+        <p className="text-muted-foreground">
+          Your credit score and application overview
+        </p>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-8">
-        {/* Credit Score Card */}
+        {/* ---------------- CREDIT SCORE CARD ---------------- */}
         <Card className="shadow-card">
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -136,7 +231,6 @@ const Home = () => {
           <CardContent className="space-y-6">
             {/* CIBIL-style TRUE Semicircle Gauge */}
             <div className="flex flex-col items-center">
-
               {/* Outer Semicircle */}
               <div className="relative w-48 h-24 overflow-hidden">
                 <div
@@ -174,11 +268,18 @@ const Home = () => {
 
               {/* Score text */}
               <div className="mt-3 text-center">
-                <div className="text-4xl font-bold text-primary">{cibilScore}</div>
+                <div className="text-4xl font-bold text-primary">
+                  {cibilScore}
+                </div>
                 <div className="text-xs text-muted-foreground">out of 900</div>
+                {!hasModelValues && (
+                  <p className="mt-1 text-[11px] text-muted-foreground italic">
+                    Score will be generated once your first assessment is
+                    completed.
+                  </p>
+                )}
               </div>
             </div>
-
 
             {/* Safe Loan Amount & Estimated Income */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -187,13 +288,18 @@ const Home = () => {
                   Safe Loan Amount
                 </p>
                 <p className="mt-1 text-lg font-semibold">
-                  {Number.isFinite(safeLoanAmount)
-                    ? currencyFormatter.format(safeLoanAmount)
-                    : "—"}
+                  {Number.isFinite(safeLoanAmount) && hasModelValues ? (
+                    currencyFormatter.format(safeLoanAmount)
+                  ) : (
+                    <span className="text-sm text-muted-foreground italic">
+                      Not generated yet
+                    </span>
+                  )}
                 </p>
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  Indicative maximum amount you can safely borrow based on your
-                  current score.
+                  {hasModelValues
+                    ? "Indicative maximum amount you can safely borrow based on your current score."
+                    : "We’ll calculate this once your credit model is generated."}
                 </p>
               </div>
 
@@ -202,12 +308,18 @@ const Home = () => {
                   Estimated Income
                 </p>
                 <p className="mt-1 text-lg font-semibold">
-                  {Number.isFinite(estimatedIncome)
-                    ? currencyFormatter.format(estimatedIncome)
-                    : "—"}
+                  {Number.isFinite(estimatedIncome) && hasModelValues ? (
+                    currencyFormatter.format(estimatedIncome)
+                  ) : (
+                    <span className="text-sm text-muted-foreground italic">
+                      Not generated yet
+                    </span>
+                  )}
                 </p>
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  Income estimate used in this creditworthiness assessment.
+                  {hasModelValues
+                    ? "Income estimate used in this creditworthiness assessment."
+                    : "Will be inferred from your applications and documents."}
                 </p>
               </div>
             </div>
@@ -229,14 +341,18 @@ const Home = () => {
             </div>
 
             {/* Update Score button */}
-            <Button className="w-full" onClick={handleUpdateScore}>
-              Update Score
+            <Button
+              className="w-full"
+              onClick={handleUpdateScore}
+              disabled={isLoadingScore}
+            >
+              {isLoadingScore ? "Updating..." : "Update Score"}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </CardContent>
         </Card>
 
-        {/* Profile & Application Status Card */}
+        {/* ---------------- PROFILE & APPLICATION STATUS CARD ---------------- */}
         <Card className="shadow-card">
           <CardHeader>
             <CardTitle>Your Status</CardTitle>
@@ -245,8 +361,12 @@ const Home = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Profile Completion Section */}
-            <div className={`p-4 bg-primary/5 rounded-lg border border-primary/10 ${userStatus ? "opacity-60 pointer-events-none" : ""}`}>
+            {/* Profile Completion / Caste Verification */}
+            <div
+              className={`p-4 bg-primary/5 rounded-lg border border-primary/10 ${
+                userStatus ? "opacity-60 pointer-events-none" : ""
+              }`}
+            >
               <div className="flex items-start gap-3 mb-3">
                 <Shield className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
                 <div className="text-sm flex-1">
@@ -273,7 +393,12 @@ const Home = () => {
 
               {/* Button Logic */}
               {userStatus ? (
-                <Button variant="secondary" size="sm" className="w-full mt-3" disabled>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="w-full mt-3"
+                  disabled
+                >
                   Caste Verified
                 </Button>
               ) : (
@@ -285,7 +410,6 @@ const Home = () => {
                 </Link>
               )}
             </div>
-
 
             {/* Apply for Loan Button */}
             {userStatus?.eligibility_status ? (
@@ -314,14 +438,7 @@ const Home = () => {
               </Tooltip>
             )}
 
-            {/* <Link to="/dashboard/benefits">
-              <Button className="w-full mt-3 bg-primary text-white hover:bg-primary/90">
-                Apply for Loan
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link> */}
-
-            {/* Loan Application Status */}
+            {/* Example loan applications (static demo) */}
             <div className="p-4 rounded-lg border bg-card">
               <div className="flex items-start justify-between mb-3">
                 <div>

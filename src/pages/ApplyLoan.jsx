@@ -1,43 +1,46 @@
-
+// src/pages/ApplyLoan.jsx
 import { useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Progress } from "@/components/ui/progress";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import {
-  User2,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+
+// Icons
+import {
   Home as HomeIcon,
   Wallet,
   FileText,
   CreditCard,
-  CheckCircle2,
-  Clock,
   DollarSign,
-  AlertCircle,
-  Shield,
-  Link as LinkIcon,
-  Upload,
-  Zap,
-  BadgeCheck
+  CheckCircle2,
 } from "lucide-react";
 
-const cn = (...classes) => classes.filter(Boolean).join(' ');
+// ✅ Section Components
+import { ProfileSidebar } from "@/components/apply-loan/ProfileSidebar";
+import { IncomeSection } from "@/components/apply-loan/IncomeSection";
+import { BankSection } from "@/components/apply-loan/BankSection";
+import { ExpensesSection } from "@/components/apply-loan/ExpensesSection";
+import { RationSection } from "@/components/apply-loan/RationSection";
+import { EnrolledSchemesSection } from "@/components/apply-loan/EnrolledSchemesSection";
+import { LoanSection } from "@/components/apply-loan/LoanSection";
+
+const cn = (...classes) => classes.filter(Boolean).join(" ");
 const useToast = () => ({
   toast: ({ title, description, variant }) => {
-    console.log(`[TOAST - ${variant || 'default'}] ${title}: ${description}`);
-  }
+    console.log(`[TOAST - ${variant || "default"}] ${title}: ${description}`);
+  },
 });
+
+/* ---------------------- ZOD SCHEMAS ---------------------- */
 
 const incomeDetailsSchema = z.object({
   employmentType: z.enum(["Self-employed", "Salaried", "Labour", "Unemployed"]),
@@ -45,21 +48,25 @@ const incomeDetailsSchema = z.object({
   monthlyIncome: z.string().min(1, "Monthly income is required"),
   secondaryIncome: z.string().optional(),
   householdMembers: z.string().optional(),
+  annualIncome: z.string().optional(),
+  assetCount: z.any().optional(),
 });
 
-const bankDetailsSchema = z.object({
-  accountHolderName: z.string().min(2, "Account holder name is required"),
-  bankName: z.string().min(2, "Bank name is required"),
-  accountNumber: z.string().min(9, "Invalid account number"),
-  confirmAccountNumber: z.string().min(9, "Invalid account number"),
-  ifscCode: z.string().length(11, "IFSC code must be 11 characters"),
-  branchName: z.string().optional(),
-  upiId: z.string().optional(),
-  consent: z.boolean().refine(val => val === true, "You must give consent"),
-}).refine((data) => data.accountNumber === data.confirmAccountNumber, {
-  message: "Account numbers don't match",
-  path: ["confirmAccountNumber"],
-});
+const bankDetailsSchema = z
+  .object({
+    accountHolderName: z.string().min(2, "Account holder name is required"),
+    bankName: z.string().min(2, "Bank name is required"),
+    accountNumber: z.string().min(9, "Invalid account number"),
+    confirmAccountNumber: z.string().min(9, "Invalid account number"),
+    ifscCode: z.string().length(11, "IFSC code must be 11 characters"),
+    branchName: z.string().optional(),
+    upiId: z.string().optional(),
+    consent: z.boolean().refine((val) => val === true, "You must give consent"),
+  })
+  .refine((data) => data.accountNumber === data.confirmAccountNumber, {
+    message: "Account numbers don't match",
+    path: ["confirmAccountNumber"],
+  });
 
 const expensesSchema = z.object({
   monthlyHouseholdExpenses: z.string().optional(),
@@ -74,6 +81,7 @@ const expensesSchema = z.object({
 
 const loanApplicationSchema = z.object({
   loanAmount: z.string().min(1, "Loan amount is required"),
+  desiredTenure: z.string().min(1, "Desired tenure is required"),
   purpose: z.string().min(10, "Please provide purpose (minimum 10 characters)"),
 });
 
@@ -92,15 +100,39 @@ const enrolledSchemesSchema = z.object({
   }),
 });
 
-const profileSections = [
-  { id: "income", title: "Income & Asset Details", icon: Wallet, completed: false },
+/* ---------------------- SIDEBAR SECTIONS ---------------------- */
+
+export const profileSections = [
+  {
+    id: "income",
+    title: "Income & Asset Details",
+    icon: Wallet,
+    completed: false,
+  },
   { id: "bank", title: "Bank Details", icon: CreditCard, completed: false },
-  { id: "expenses", title: "Expenses & Commodities", icon: HomeIcon, completed: false },
-  { id: "House Hold and Ration Card Detail", title: "House Hold and Ration Card Detail", icon: FileText, completed: false },
-  { id: "schemes", title: "Enrolled Schemes", icon: FileText, completed: false },
+  {
+    id: "expenses",
+    title: "Expenses & Commodities",
+    icon: HomeIcon,
+    completed: false,
+  },
+  {
+    id: "House Hold and Ration Card Detail",
+    title: "House Hold and Ration Card Detail",
+    icon: FileText,
+    completed: false,
+  },
+  {
+    id: "schemes",
+    title: "Enrolled Schemes",
+    icon: FileText,
+    completed: false,
+  },
   { id: "loan", title: "Apply for Loan", icon: DollarSign, completed: false },
 ];
- 
+
+/* ------------------------- MAIN COMPONENT ------------------------- */
+
 const ApplyLoan = () => {
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
@@ -113,10 +145,14 @@ const ApplyLoan = () => {
   const [selectedSection, setSelectedSection] = useState("income");
   const [completedSections, setCompletedSections] = useState([]);
   const { toast } = useToast();
+
+  // Aadhaar / Digilocker / API state
   const [aadhaarVerified, setAadhaarVerified] = useState(false);
   const [digilockerConnected, setDigilockerConnected] = useState(false);
   const [billApiConnected, setBillApiConnected] = useState(false);
   const [verifyingAadhaar, setVerifyingAadhaar] = useState(false);
+
+  // Ration state
   const [rationFetched, setRationFetched] = useState(false);
   const [fetchingRation, setFetchingRation] = useState(false);
   const [rationNumber, setRationNumber] = useState("");
@@ -127,16 +163,17 @@ const ApplyLoan = () => {
     dependentCount: "",
     earnersCount: "",
     dependencyRatio: "",
-    rationCategory: ""
+    rationCategory: "",
   });
 
   const [seccFetched, setSeccFetched] = useState(false);
   const [fetchingSECC, setFetchingSECC] = useState(false);
   const [seccDetails, setSeccDetails] = useState({
     category: "",
-    score: ""
+    score: "",
   });
 
+  // Expenses: bills, LPG, mobile
   const [uploadedBills, setUploadedBills] = useState({
     electricity: [],
     mobile: [],
@@ -151,9 +188,19 @@ const ApplyLoan = () => {
     verifying: false,
     verified: null,
   });
-  
+
   const [lpgPdfFile, setLpgPdfFile] = useState(null);
 
+  const [mobileDetails, setMobileDetails] = useState({
+    mobile_recharge_amt_avg: "",
+    mobile_recharge_freq_pm: "",
+    provider: "",
+    verifying: false,
+    verified: false,
+    flag: null,
+  });
+
+  // Documents – you can use this later in a dedicated section
   const [uploadedDocuments, setUploadedDocuments] = useState({
     caste: { file: null, verified: false, verifying: false },
     aadhaar: { file: null, verified: false, verifying: false },
@@ -164,13 +211,18 @@ const ApplyLoan = () => {
     selfie: { file: null, verified: false, verifying: false },
   });
 
-  const completedCount = completedSections.length;
-  const progressPercentage = (completedCount / profileSections.length) * 100;
+  // Loan state
+  const [loanAmount, setLoanAmount] = useState(0);
+  const [showExpensesForLoan, setShowExpensesForLoan] = useState(false);
+  const LOAN_THRESHOLD = 100000;
+
+  /* ---------------------- REACT-HOOK-FORM INSTANCES ---------------------- */
 
   const incomeForm = useForm({
     resolver: zodResolver(incomeDetailsSchema),
     defaultValues: {
       employmentType: "Self-employed",
+      assetCount: 0,
     },
   });
 
@@ -192,16 +244,9 @@ const ApplyLoan = () => {
     resolver: zodResolver(loanApplicationSchema),
     defaultValues: {
       loanAmount: "",
+      desiredTenure: "",
       purpose: "",
     },
-  });
-
-  const [mobileDetails, setMobileDetails] = useState({
-    mobile_recharge_amt_avg: "",
-    mobile_recharge_freq_pm: "",
-    provider: "",
-    verifying: false,
-    verified: false
   });
 
   const enrolledSchemesForm = useForm({
@@ -214,11 +259,47 @@ const ApplyLoan = () => {
     },
   });
 
+  /* ---------------------- HANDLERS (same logic as before) ---------------------- */
+
+  const markSectionCompleted = (id) => {
+    if (!completedSections.includes(id)) {
+      setCompletedSections((prev) => [...prev, id]);
+    }
+  };
+
+  const onIncomeSubmit = (data) => {
+    console.log("Income Income & Asset Details:", data);
+    markSectionCompleted("income");
+    toast({
+      title: "Income & Asset Details Saved",
+      description: "Your income information has been saved successfully.",
+      variant: "success",
+    });
+  };
+
+  const onBankSubmit = (data) => {
+    console.log("Bank Details:", data);
+    markSectionCompleted("bank");
+    toast({
+      title: "Bank Details Saved",
+      description: "Your bank information has been saved successfully.",
+      variant: "success",
+    });
+  };
+
+  const onExpensesSubmit = (data) => {
+    console.log("Expenses Details:", data);
+    markSectionCompleted("expenses");
+    toast({
+      title: "Expenses Details Saved",
+      description: "Your expense information has been saved successfully.",
+      variant: "success",
+    });
+  };
+
   const onEnrolledSchemesSubmit = (values) => {
     console.log("Enrolled schemes data:", values);
-    if (!completedSections.includes("schemes")) {
-      setCompletedSections([...completedSections, "schemes"]);
-    }
+    markSectionCompleted("schemes");
     toast({
       title: "Enrolled Schemes Saved",
       description: "Your enrolled schemes information has been saved.",
@@ -226,90 +307,114 @@ const ApplyLoan = () => {
     });
   };
 
-  const [loanAmount, setLoanAmount] = useState(0);
-  const [showExpensesForLoan, setShowExpensesForLoan] = useState(false);
-  const LOAN_THRESHOLD = 100000;
+  const onLoanSubmit = (data) => {
+    console.log("Loan Application:", data);
 
-  const onIncomeSubmit = (data) => {
-    console.log("Income Income & Asset Details:", data);
-    if (!completedSections.includes("income")) setCompletedSections([...completedSections, "income"]);
-    toast({ title: "Income & Asset Details Saved", description: "Your income information has been saved successfully.", variant: "success" });
-  };
+    const amount = parseFloat(data.loanAmount);
+    const tenure = parseInt(data.desiredTenure, 10) || 0;
 
-  const onBankSubmit = (data) => {
-    console.log("Bank Details:", data);
-    if (!completedSections.includes("bank")) setCompletedSections([...completedSections, "bank"]);
-    toast({ title: "Bank Details Saved", description: "Your bank information has been saved successfully.", variant: "success" });
-  };
-
-  const onExpensesSubmit = (data) => {
-    console.log("Expenses Details:", data);
-    if (!completedSections.includes("expenses")) setCompletedSections([...completedSections, "expenses"]);
-    toast({ title: "Expenses Details Saved", description: "Your expense information has been saved successfully.", variant: "success" });
-  };
-
-  const handleDocumentSubmit = () => {
-    if (!aadhaarVerified) {
-      toast({ title: "Aadhaar Verification Required", description: "Please verify your Aadhaar card before submitting documents.", variant: "destructive" });
+    if (amount > LOAN_THRESHOLD && !showExpensesForLoan) {
+      setLoanAmount(amount);
+      setShowExpensesForLoan(true);
+      toast({
+        title: "Additional Information Required",
+        description: `For loans above ₹${(LOAN_THRESHOLD / 1000).toFixed(
+          0
+        )}K, please fill expenses & commodities details below.`,
+        variant: "default",
+      });
       return;
     }
-    if (!completedSections.includes("documents")) setCompletedSections([...completedSections, "documents"]);
-    toast({ title: "Documents Submitted", description: "Your documents have been uploaded successfully.", variant: 'success' });
+
+    markSectionCompleted("loan");
+
+    toast({
+      title: "Loan Application Submitted",
+      description: `Your loan application for ₹${amount.toLocaleString(
+        "en-IN"
+      )} over ${
+        tenure ? `${tenure} months` : "your selected tenure"
+      } has been submitted for review. Processing will begin shortly.`,
+      variant: "success",
+    });
   };
 
-  const handleVerifyLpg = async () => {
-    try {
-      const aadhar_no = localStorage.getItem("aadhar_no");
-  
-      if (!aadhar_no) {
-        toast({
-          title: "Aadhaar Missing",
-          description: "Aadhaar not found in localStorage.",
-          variant: "destructive",
-        });
-        return;
-      }
-  
-      setLpgDetails((prev) => ({ ...prev, verifying: true }));
-  
-      const res = await fetch("http://localhost:5010/api/lpg/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          aadhar_no,
-          consumer_no: lpgDetails.consumer_no,
-          lpg_refills_3m: lpgDetails.lpg_refills_3m,
-          lpg_avg_cost: lpgDetails.lpg_avg_cost,
-          lpg_avg_refill_interval_days: lpgDetails.lpg_avg_refill_interval_days,
-        }),
-      });
-  
-      const data = await res.json();
-  
-      setLpgDetails((prev) => ({
-        ...prev,
-        verifying: false,
-        verified: data.match,
-      }));
-  
+  const handleAadhaarVerification = async (method) => {
+    setVerifyingAadhaar(true);
+    setTimeout(() => {
+      setVerifyingAadhaar(false);
+      setAadhaarVerified(true);
+      if (method === "digilocker") setDigilockerConnected(true);
       toast({
-        title: data.match ? "LPG Bill Verified" : "Suspicious LPG Data",
-        description: data.match
-          ? "Your LPG details match our records."
-          : "Mismatch found. Flag has been updated.",
-        variant: data.match ? "success" : "destructive",
+        title: "Aadhaar Verified Successfully",
+        description: `Your Aadhaar has been verified using ${
+          method === "blockchain" ? "blockchain" : "DigiLocker"
+        }.`,
+        variant: "success",
       });
-    } catch (error) {
-      console.error(error);
-  
-      setLpgDetails((prev) => ({ ...prev, verifying: false }));
-  
+    }, 2000);
+  };
+
+  const handleBillApiConnect = () => {
+    setTimeout(() => {
+      setBillApiConnected(true);
       toast({
-        title: "Verification Error",
-        description: "Unable to verify LPG data.",
+        title: "API Connected Successfully",
+        description: "Your bill payment accounts have been linked.",
+        variant: "success",
+      });
+    }, 1500);
+  };
+
+  const handleBillUpload = (type, files) => {
+    if (!files || files.length === 0) return;
+    const fileArray = Array.from(files);
+    const newBills = fileArray.map((file) => ({
+      files: [file],
+      verified: false,
+      verifying: false,
+    }));
+    setUploadedBills((prev) => ({
+      ...prev,
+      [type]: [...prev[type], ...newBills],
+    }));
+    toast({
+      title: "Files Uploaded",
+      description: `${fileArray.length} file(s) uploaded. Click verify to authenticate.`,
+    });
+  };
+
+  const handleVerifyBills = async (type) => {
+    const bills = uploadedBills[type];
+    if (bills.length === 0) {
+      toast({
+        title: "No Files to Verify",
+        description: "Please upload files first.",
         variant: "destructive",
       });
+      return;
     }
+
+    setUploadedBills((prev) => ({
+      ...prev,
+      [type]: prev[type].map((bill) => ({ ...bill, verifying: true })),
+    }));
+
+    setTimeout(() => {
+      setUploadedBills((prev) => ({
+        ...prev,
+        [type]: prev[type].map((bill) => ({
+          ...bill,
+          verified: true,
+          verifying: false,
+        })),
+      }));
+      toast({
+        title: "Bills Verified Successfully",
+        description: `All ${type} bills have been verified and authenticated.`,
+        variant: "success",
+      });
+    }, 2000);
   };
 
   const handleVerifyElectricityBills = async () => {
@@ -330,7 +435,7 @@ const ApplyLoan = () => {
       });
 
       const data = await res.json();
-  
+
       setUploadedBills((prev) => ({
         ...prev,
         electricity: prev.electricity.map((b, idx) => ({
@@ -339,7 +444,6 @@ const ApplyLoan = () => {
           verified: data.verifiedBills[idx],
         })),
       }));
-
     } catch (err) {
       console.error("Verification failed", err);
       setUploadedBills((prev) => ({
@@ -351,46 +455,6 @@ const ApplyLoan = () => {
         })),
       }));
     }
-  };
-
-  const handleAadhaarVerification = async (method) => {
-    setVerifyingAadhaar(true);
-    setTimeout(() => {
-      setVerifyingAadhaar(false);
-      setAadhaarVerified(true);
-      if (method === "digilocker") setDigilockerConnected(true);
-      toast({ title: "Aadhaar Verified Successfully", description: `Your Aadhaar has been verified using ${method === "blockchain" ? "blockchain" : "DigiLocker"}.`, variant: "success" });
-    }, 2000);
-  };
-
-  const handleBillApiConnect = () => {
-    setTimeout(() => {
-      setBillApiConnected(true);
-      toast({ title: "API Connected Successfully", description: "Your bill payment accounts have been linked.", variant: "success" });
-    }, 1500);
-  };
-
-  const handleBillUpload = (type, files) => {
-    if (!files || files.length === 0) return;
-    const fileArray = Array.from(files);
-    const newBills = fileArray.map((file) => ({ files: [file], verified: false, verifying: false }));
-    setUploadedBills((prev) => ({ ...prev, [type]: [...prev[type], ...newBills] }));
-    toast({ title: "Files Uploaded", description: `${fileArray.length} file(s) uploaded. Click verify to authenticate.` });
-  };
-
-  const handleVerifyBills = async (type) => {
-    const bills = uploadedBills[type];
-    if (bills.length === 0) {
-      toast({ title: "No Files to Verify", description: "Please upload files first.", variant: "destructive" });
-      return;
-    }
-    
-    setUploadedBills((prev) => ({ ...prev, [type]: prev[type].map((bill) => ({ ...bill, verifying: true })) }));
-    
-    setTimeout(() => {
-      setUploadedBills((prev) => ({ ...prev, [type]: prev[type].map((bill) => ({ ...bill, verified: true, verifying: false })) }));
-      toast({ title: "Bills Verified Successfully", description: `All ${type} bills have been verified and authenticated.`, variant: "success" });
-    }, 2000);
   };
 
   const verifyMobileDetails = async () => {
@@ -406,8 +470,8 @@ const ApplyLoan = () => {
           aadhar_no,
           mobile_recharge_amt_avg: mobileDetails.mobile_recharge_amt_avg,
           mobile_recharge_freq_pm: mobileDetails.mobile_recharge_freq_pm,
-          provider: mobileDetails.provider
-        })
+          provider: mobileDetails.provider,
+        }),
       });
 
       const data = await res.json();
@@ -420,7 +484,7 @@ const ApplyLoan = () => {
         ...prev,
         verifying: false,
         verified: data.match,
-        flag: data.flag
+        flag: data.flag,
       }));
 
       setUploadedBills((prev) => ({
@@ -428,8 +492,8 @@ const ApplyLoan = () => {
         mobile: prev.mobile.map((bill) => ({
           ...bill,
           verifying: false,
-          verified: data.match
-        }))
+          verified: data.match,
+        })),
       }));
 
       toast({
@@ -437,9 +501,8 @@ const ApplyLoan = () => {
         description: data.match
           ? "All mobile details matched your records."
           : "Mismatch found. Flag has been set to suspicious.",
-        variant: data.match ? "success" : "destructive"
+        variant: data.match ? "success" : "destructive",
       });
-
     } catch (err) {
       console.error(err);
 
@@ -448,58 +511,106 @@ const ApplyLoan = () => {
       toast({
         title: "Verification Error",
         description: "Unable to verify mobile data.",
-        variant: "destructive"
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleVerifyLpg = async () => {
+    try {
+      const aadhar_no = localStorage.getItem("aadhar_no");
+
+      if (!aadhar_no) {
+        toast({
+          title: "Aadhaar Missing",
+          description: "Aadhaar not found in localStorage.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setLpgDetails((prev) => ({ ...prev, verifying: true }));
+
+      const res = await fetch("http://localhost:5010/api/lpg/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          aadhar_no,
+          consumer_no: lpgDetails.consumer_no,
+          lpg_refills_3m: lpgDetails.lpg_refills_3m,
+          lpg_avg_cost: lpgDetails.lpg_avg_cost,
+          lpg_avg_refill_interval_days:
+            lpgDetails.lpg_avg_refill_interval_days,
+        }),
+      });
+
+      const data = await res.json();
+
+      setLpgDetails((prev) => ({
+        ...prev,
+        verifying: false,
+        verified: data.match,
+      }));
+
+      toast({
+        title: data.match ? "LPG Bill Verified" : "Suspicious LPG Data",
+        description: data.match
+          ? "Your LPG details match our records."
+          : "Mismatch found. Flag has been updated.",
+        variant: data.match ? "success" : "destructive",
+      });
+    } catch (error) {
+      console.error(error);
+
+      setLpgDetails((prev) => ({ ...prev, verifying: false }));
+
+      toast({
+        title: "Verification Error",
+        description: "Unable to verify LPG data.",
+        variant: "destructive",
       });
     }
   };
 
   const handleDocumentUpload = (docType, file) => {
     if (!file) return;
-    setUploadedDocuments((prev) => ({ ...prev, [docType]: { file, verified: false, verifying: true } }));
+    setUploadedDocuments((prev) => ({
+      ...prev,
+      [docType]: { file, verified: false, verifying: true },
+    }));
     setTimeout(() => {
-      setUploadedDocuments((prev) => ({ ...prev, [docType]: { ...prev[docType], verified: true, verifying: false } }));
-      toast({ title: "Document Verified", description: `${docType} document has been verified successfully.`, variant: "success" });
-    }, 2000);
-  };
-
-  const onLoanSubmit = (data) => {
-    console.log("Loan Application:", data);
-    const amount = parseFloat(data.loanAmount);
-    if (amount > LOAN_THRESHOLD && !showExpensesForLoan) {
-      setLoanAmount(amount);
-      setShowExpensesForLoan(true);
+      setUploadedDocuments((prev) => ({
+        ...prev,
+        [docType]: { ...prev[docType], verified: true, verifying: false },
+      }));
       toast({
-        title: "Additional Information Required",
-        description: `For loans above ₹${(LOAN_THRESHOLD / 1000).toFixed(0)}K, please fill expenses & commodities details below.`,
-        variant: "default"
+        title: "Document Verified",
+        description: `${docType} document has been verified successfully.`,
+        variant: "success",
       });
-      return;
-    }
-    if (!completedSections.includes("loan")) setCompletedSections([...completedSections, "loan"]);
-    toast({
-      title: "Loan Application Submitted",
-      description: "Your loan application has been submitted for review. Processing will begin shortly.",
-      variant: "success"
-    });
+    }, 2000);
   };
 
   const handleFetchRationDetails = async () => {
     try {
       setFetchingRation(true);
+      setRationError("");
 
-      const res = await fetch(`http://localhost:5010/api/ration/${rationNumber}`);
+      const res = await fetch(
+        `http://localhost:5010/api/ration/${rationNumber}`
+      );
       const data = await res.json();
 
       if (!data.success) {
-        setRationError(data.message);
+        setRationError(data.message || "Failed to fetch details.");
         setFetchingRation(false);
         return;
       }
 
       setRationDetails(data.rationDetails);
-      setSeccDetails(data.seccDetails);
+      setSeccDetails(data.seccDetails || { category: "", score: "" });
       setRationFetched(true);
-      setSeccFetched(true); // Optional, depends on workflow
+      setSeccFetched(!!data.seccDetails);
       setFetchingRation(false);
     } catch (err) {
       console.error(err);
@@ -508,8 +619,12 @@ const ApplyLoan = () => {
     }
   };
 
+  const completedCount = completedSections.length;
+  const progressPercentage = (completedCount / profileSections.length) * 100;
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl pt-20">
+      {/* PAGE HEADER */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-primary mb-1">{pageTitle}</h1>
         <p className="text-muted-foreground">
@@ -520,11 +635,13 @@ const ApplyLoan = () => {
 
         {selectedSchemeName && (
           <p className="mt-2 text-sm text-primary/80">
-            Selected Scheme: <span className="font-semibold">{selectedSchemeName}</span>
+            Selected Scheme:{" "}
+            <span className="font-semibold">{selectedSchemeName}</span>
           </p>
         )}
       </div>
 
+      {/* PROGRESS CARD */}
       <Card className="shadow-lg mb-8">
         <CardContent className="pt-6">
           <div className="flex items-center justify-between mb-2">
@@ -537,37 +654,22 @@ const ApplyLoan = () => {
         </CardContent>
       </Card>
 
+      {/* LAYOUT */}
       <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr] gap-8">
-        <div className="flex flex-col gap-2 p-2 sticky top-4 self-start">
-          {profileSections.map((section) => (
-            <button
-              key={section.id}
-              onClick={() => setSelectedSection(section.id)}
-              className={cn(
-                "flex items-center gap-3 p-3 rounded-lg transition-all text-left w-full hover:bg-muted/50",
-                selectedSection === section.id
-                  ? "bg-primary/10 text-primary border-r-4 border-primary font-semibold"
-                  : "text-muted-foreground"
-              )}
-            >
-              <section.icon
-                className={cn(
-                  "h-5 w-5",
-                  completedSections.includes(section.id) && "text-success"
-                )}
-              />
-              <span className="text-sm flex-1">{section.title}</span>
-              {completedSections.includes(section.id) && (
-                <CheckCircle2 className="h-4 w-4 text-success" />
-              )}
-            </button>
-          ))}
-        </div>
+        {/* SIDEBAR */}
+        <ProfileSidebar
+          selectedSection={selectedSection}
+          setSelectedSection={setSelectedSection}
+          completedSections={completedSections}
+        />
 
+        {/* MAIN CARD */}
         <Card className="shadow-lg min-h-[500px]">
           <CardHeader className="border-b">
             <CardTitle>
-              {profileSections.find((s) => s.id === selectedSection)?.title}
+              {
+                profileSections.find((s) => s.id === selectedSection)?.title
+              }
             </CardTitle>
             <CardDescription>
               Complete this section to improve your loan eligibility.
@@ -577,1196 +679,76 @@ const ApplyLoan = () => {
           <CardContent className="py-6 max-h-[calc(600px)] overflow-y-auto">
             {/* INCOME SECTION */}
             {selectedSection === "income" && (
-              <Form {...incomeForm}>
-                <form
-                  onSubmit={incomeForm.handleSubmit(onIncomeSubmit)}
-                  className="space-y-6"
-                >
-                  {/* Occupation */}
-                  <FormField
-                    control={incomeForm.control}
-                    name="employmentType"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Occupation *</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select employment type" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="Self-employed">Self-employed</SelectItem>
-                            <SelectItem value="Salaried">Salaried</SelectItem>
-                            <SelectItem value="Labour">Labour</SelectItem>
-                            <SelectItem value="Unemployed">Unemployed</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {/* Primary Income Source */}
-                  <FormField
-                    control={incomeForm.control}
-                    name="primaryIncomeSource"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Primary Income Source *</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="e.g., Small Business, Daily Wage"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {/* Monthly & Annual Income */}
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <FormField
-                      control={incomeForm.control}
-                      name="monthlyIncome"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Monthly Income (₹) *</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              placeholder="Enter amount"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={incomeForm.control}
-                      name="annualIncome"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Annual Income (₹)</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              placeholder="Enter annual income"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  {/* Asset Count with + / − */}
-                  <FormField
-                    control={incomeForm.control}
-                    name="assetCount"
-                    render={({ field }) => {
-                      const value = Number(field.value) || 0;
-
-                      const handleChange = (newVal) => {
-                        if (newVal < 0) newVal = 0;
-                        field.onChange(newVal);
-                      };
-
-                      return (
-                        <FormItem>
-                          <FormLabel>Asset Count</FormLabel>
-                          <div className="flex items-center gap-3">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              onClick={() => handleChange(value - 1)}
-                            >
-                              -
-                            </Button>
-
-                            <div className="min-w-[3rem] text-center text-sm font-medium">
-                              {value}
-                            </div>
-
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              onClick={() => handleChange(value + 1)}
-                            >
-                              +
-                            </Button>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Total count of significant assets (e.g., land, shop, vehicle, etc.).
-                          </p>
-                          <FormMessage />
-                        </FormItem>
-                      );
-                    }}
-                  />
-
-                  {/* Tip */}
-                  <div className="p-4 bg-muted rounded-lg">
-                    <p className="text-sm text-muted-foreground">
-                      💡 Tip: Providing accurate Income & Asset Details helps improve your
-                      credit score accuracy and loan eligibility, especially for scheme-based
-                      loans like{" "}
-                      {selectedSchemeName ? `"${selectedSchemeName}"` : "NBCFDC schemes"}.
-                    </p>
-                  </div>
-
-                  {/* Upload Income Proof */}
-                  <div className="space-y-2">
-                    <Label>Upload Income Proof (Optional)</Label>
-                    <Input type="file" accept=".pdf,.jpg,.jpeg,.png" />
-                    <p className="text-xs text-muted-foreground">
-                      Upload payslip, sale receipt, or income certificate
-                    </p>
-                  </div>
-
-                  <Button type="submit" className="w-full">
-                    Save Income & Asset Details
-                  </Button>
-                </form>
-              </Form>
+              <IncomeSection
+                form={incomeForm}
+                onSubmit={onIncomeSubmit}
+                selectedSchemeName={selectedSchemeName}
+              />
             )}
 
             {/* BANK SECTION */}
             {selectedSection === "bank" && (
-              <Form {...bankForm}>
-                <form
-                  onSubmit={bankForm.handleSubmit(onBankSubmit)}
-                  className="space-y-6"
-                >
-                  <FormField
-                    control={bankForm.control}
-                    name="accountHolderName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Account Holder Name *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Must match Aadhaar name" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={bankForm.control}
-                    name="bankName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Bank Name *</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter bank name" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <FormField
-                      control={bankForm.control}
-                      name="accountNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Account Number *</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter account number" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={bankForm.control}
-                      name="confirmAccountNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Confirm Account Number *</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="Re-enter account number"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <FormField
-                      control={bankForm.control}
-                      name="ifscCode"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>IFSC Code *</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="Enter 11-character IFSC"
-                              maxLength={11}
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={bankForm.control}
-                      name="branchName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Branch Name (Optional)</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter branch name" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <FormField
-                    control={bankForm.control}
-                    name="upiId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>UPI ID (Optional)</FormLabel>
-                        <FormControl>
-                          <Input placeholder="yourname@upi" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="space-y-2">
-                    <Label>Passbook Copy / Bank Statement (Optional)</Label>
-                    <Input type="file" accept=".pdf,.jpg,.jpeg,.png" />
-                  </div>
-
-                  {/* Consent */}
-                  <FormField
-                    control={bankForm.control}
-                    name="consent"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                        <FormControl>
-                          <div className="flex items-start space-x-3">
-                            <Checkbox
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                              id="consent-checkbox"
-                            />
-                          </div>
-                        </FormControl>
-
-                        <div className="space-y-1 leading-none">
-                          <FormLabel>
-                            I authorize NBCFDC to verify my bank details *
-                          </FormLabel>
-                          <FormMessage />
-                        </div>
-                      </FormItem>
-                    )}
-                  />
-
-                  <Button type="submit" className="w-full">
-                    Save Bank Details
-                  </Button>
-                </form>
-              </Form>
+              <BankSection form={bankForm} onSubmit={onBankSubmit} />
             )}
 
-            {/* EXPENSES */}
+            {/* EXPENSES & COMMODITIES */}
             {selectedSection === "expenses" && (
-              <div className="space-y-6">
-                <Form {...expensesForm}>
-                  <form
-                    onSubmit={expensesForm.handleSubmit(onExpensesSubmit)}
-                    className="space-y-6"
-                  >
-                    <div className="space-y-4">
-                      <Tabs defaultValue="upload" className="w-full">
-                        <TabsContent value="upload" className="space-y-4">
-                          <div className="rounded-lg space-y-6">
-                            <p className="text-sm text-muted-foreground">
-                              Upload your recent utility bills for verification. This helps
-                              improve your credit score accuracy.
-                            </p>
-
-                            {/* Electricity Bills */}
-                            <div className="space-y-3">
-                              <Label>Electricity Bills (Max 3 PDFs)</Label>
-
-                              <Input
-                                type="file"
-                                accept=".pdf"
-                                multiple
-                                onChange={(e) => {
-                                  const newFiles = Array.from(e.target.files || []);
-                                  const totalAllowed =
-                                    3 - uploadedBills.electricity.length;
-
-                                  const validFiles = newFiles.slice(0, totalAllowed);
-
-                                  setUploadedBills((prev) => ({
-                                    ...prev,
-                                    electricity: [
-                                      ...prev.electricity,
-                                      ...validFiles.map((f) => ({
-                                        files: [f],
-                                        verifying: false,
-                                        verified: false,
-                                      })),
-                                    ],
-                                  }));
-                                }}
-                                disabled={uploadedBills.electricity.length >= 3}
-                              />
-
-                              {uploadedBills.electricity.length > 0 && (
-                                <div className="space-y-2 mt-3">
-                                  {uploadedBills.electricity.map((bill, idx) => (
-                                    <div
-                                      key={idx}
-                                      className="flex items-center gap-2 p-3 bg-background rounded-lg border"
-                                    >
-                                      <FileText className="h-4 w-4 text-muted-foreground" />
-
-                                      <span className="text-sm flex-1">
-                                        {bill.files[0]?.name}
-                                      </span>
-
-                                      {bill.verifying ? (
-                                        <div className="flex items-center gap-2 text-primary">
-                                          <Clock className="h-4 w-4 animate-spin" />
-                                          <span className="text-xs">Verifying...</span>
-                                        </div>
-                                      ) : bill.verified ? (
-                                        <div className="flex items-center gap-1 text-success">
-                                          <CheckCircle2 className="h-4 w-4" />
-                                          <span className="text-xs font-medium">
-                                            Verified
-                                          </span>
-                                        </div>
-                                      ) : (
-                                        <span className="text-xs text-muted-foreground">
-                                          Pending
-                                        </span>
-                                      )}
-
-                                      <button
-                                        className="text-red-500 text-xs font-medium"
-                                        onClick={() => {
-                                          setUploadedBills((prev) => ({
-                                            ...prev,
-                                            electricity: prev.electricity.filter(
-                                              (_, i) => i !== idx
-                                            ),
-                                          }));
-                                        }}
-                                      >
-                                        Delete
-                                      </button>
-                                    </div>
-                                  ))}
-
-                                  {!uploadedBills.electricity.every((b) => b.verified) && (
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      className="mt-2"
-                                      disabled={uploadedBills.electricity.some(
-                                        (b) => b.verifying
-                                      )}
-                                      onClick={handleVerifyElectricityBills}
-                                    >
-                                      <Shield className="h-4 w-4 mr-2" />
-                                      Verify All Electricity Bills
-                                    </Button>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-
-
-                            
-                            {/* Mobile */}
-                            <div className="space-y-3">
-                              <Label>Mobile Recharge Details</Label>
-
-                              {/* Average Monthly Recharge Amount */}
-                              <div className="space-y-1">
-                                <Label className="text-sm">Average Recharge Amount (₹)</Label>
-                                <Input
-                                  type="number"
-                                  placeholder="Enter average monthly recharge amount"
-                                  value={mobileDetails.mobile_recharge_amt_avg}
-                                  onChange={(e) =>
-                                    setMobileDetails({
-                                      ...mobileDetails,
-                                      mobile_recharge_amt_avg: e.target.value
-                                    })
-                                  }
-                                />
-                              </div>
-
-                              {/* Recharge Frequency */}
-                              <div className="space-y-1">
-                                <Label className="text-sm">Recharge Frequency (per month)</Label>
-                                <Input
-                                  type="number"
-                                  placeholder="How many recharges per month?"
-                                  value={mobileDetails.mobile_recharge_freq_pm}
-                                  onChange={(e) =>
-                                    setMobileDetails({
-                                      ...mobileDetails,
-                                      mobile_recharge_freq_pm: e.target.value
-                                    })
-                                  }
-                                />
-                              </div>
-
-                              {/* Provider */}
-                              <div className="space-y-1">
-                                <Label className="text-sm">Provider</Label>
-                                <Input
-                                  type="text"
-                                  placeholder="Jio / Airtel / VI / BSNL"
-                                  value={mobileDetails.provider}
-                                  onChange={(e) =>
-                                    setMobileDetails({
-                                      ...mobileDetails,
-                                      provider: e.target.value
-                                    })
-                                  }
-                                />
-                              </div>
-
-                              <Button
-                                type="button"
-                                size="sm"
-                                onClick={() => verifyMobileDetails()}
-                                disabled={mobileDetails.verifying}
-                                className="mt-2"
-                              >
-                                {mobileDetails.verifying ? (
-                                  <div className="flex items-center gap-2 text-primary">
-                                    <Clock className="h-4 w-4 animate-spin" />
-                                    <span className="text-xs">Verifying...</span>
-                                  </div>
-                                ) : (
-                                  <>
-                                    <Shield className="h-4 w-4 mr-2" />
-                                    Verify Mobile Details
-                                  </>
-                                )}
-                              </Button>
-
-                              {mobileDetails.verified && (
-                                <div className="flex items-center gap-1 text-success mt-2">
-                                  <CheckCircle2 className="h-4 w-4" />
-                                  <span className="text-xs font-medium">Verified</span>
-                                </div>
-                              )}
-                            </div>
-                            {/* LPG Bill Section */}
-                            <div className="space-y-3">
-                              <Label>LPG Bill Details</Label>
-
-                              {/* Consumer Number */}
-                              <Input
-                                type="text"
-                                placeholder="Enter LPG Consumer Number"
-                                value={lpgDetails.consumer_no}
-                                onChange={(e) =>
-                                  setLpgDetails((prev) => ({ ...prev, consumer_no: e.target.value }))
-                                }
-                              />
-
-                              {/* Refills in last 3 months */}
-                              <Input
-                                type="number"
-                                placeholder="Refills in last 3 months"
-                                value={lpgDetails.lpg_refills_3m}
-                                onChange={(e) =>
-                                  setLpgDetails((prev) => ({ ...prev, lpg_refills_3m: e.target.value }))
-                                }
-                              />
-
-                              {/* Average refill cost */}
-                              <Input
-                                type="number"
-                                placeholder="Average Refill Cost"
-                                value={lpgDetails.lpg_avg_cost}
-                                onChange={(e) =>
-                                  setLpgDetails((prev) => ({ ...prev, lpg_avg_cost: e.target.value }))
-                                }
-                              />
-
-                              {/* Average refill interval */}
-                              <Input
-                                type="number"
-                                placeholder="Average Refill Interval (days)"
-                                value={lpgDetails.lpg_avg_refill_interval_days}
-                                onChange={(e) =>
-                                  setLpgDetails((prev) => ({
-                                    ...prev,
-                                    lpg_avg_refill_interval_days: e.target.value,
-                                  }))
-                                }
-                              />
-
-                              {/* Upload PDF */}
-                              <Label>LPG Bill PDF (Optional)</Label>
-                              <Input
-                                type="file"
-                                accept=".pdf"
-                                onChange={(e) =>
-                                  setLpgPdfFile(e.target.files?.[0] || null)
-                                }
-                              />
-
-                              {/* Verify Button */}
-                              <Button
-                                type="button"
-                                size="sm"
-                                onClick={handleVerifyLpg}
-                                disabled={lpgDetails.verifying}
-                              >
-                                <Shield className="h-4 w-4 mr-2" />
-                                {lpgDetails.verifying ? "Verifying..." : "Verify LPG Details"}
-                              </Button>
-
-                              {/* Verification Status */}
-                              {lpgDetails.verified !== null && (
-                                <div className="text-sm mt-2">
-                                  {lpgDetails.verified ? (
-                                    <span className="text-success font-medium">
-                                      <CheckCircle2 className="inline w-4 h-4" /> LPG Details Verified
-                                    </span>
-                                  ) : (
-                                    <span className="text-destructive font-medium">
-                                      <Shield className="inline w-4 h-4" /> Suspicious Data Detected!
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </TabsContent>
-
-                        <TabsContent value="api" className="space-y-4">
-                          <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg space-y-4">
-                            <div className="flex items-start gap-3">
-                              <LinkIcon className="h-5 w-5 text-primary mt-0.5" />
-                              <div>
-                                <h4 className="font-semibold text-primary mb-1">Connect Your Accounts</h4>
-                                <p className="text-sm text-muted-foreground">Give us secure access to automatically fetch your bill payment history. This is faster and more accurate than manual uploads.</p>
-                              </div>
-                            </div>
-
-                            {billApiConnected ? (
-                              <div className="p-4 bg-success/10 border border-success rounded-lg">
-                                <div className="flex items-center gap-2 text-success mb-2"><CheckCircle2 className="h-5 w-5" /><span className="font-semibold">Connected Successfully</span></div>
-                                <p className="text-sm text-muted-foreground">We're now able to fetch your bill payment data automatically.</p>
-                                <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => setBillApiConnected(false)}>Disconnect</Button>
-                              </div>
-                            ) : (
-                              <div className="space-y-4">
-                                <div className="flex items-start space-x-3 p-3 rounded-md border">
-                                  <Checkbox id="api-consent" />
-                                  <div className="space-y-1 leading-none">
-                                    <label htmlFor="api-consent" className="text-sm font-medium cursor-pointer">I authorize secure access to my utility bill accounts</label>
-                                    <p className="text-xs text-muted-foreground">Your data is encrypted and will only be used for credit assessment</p>
-                                  </div>
-                                </div>
-                                <div className="grid gap-3">
-                                  <Button type="button" variant="outline" className="w-full justify-start" onClick={handleBillApiConnect}><Zap className="h-4 w-4 mr-2" />Connect Electricity Provider</Button>
-                                  <Button type="button" variant="outline" className="w-full justify-start" onClick={handleBillApiConnect}><LinkIcon className="h-4 w-4 mr-2" />Connect Mobile Operator</Button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </TabsContent>
-                      </Tabs>
-                    </div>
-
-                    <FormField
-                      control={expensesForm.control}
-                      name="remarks"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Remarks (Optional)</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              placeholder="Any additional information"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <Button type="submit" className="w-full">
-                      Save Expense Details
-                    </Button>
-                  </form>
-                </Form>
-              </div>
+              <ExpensesSection
+                form={expensesForm}
+                onSubmit={onExpensesSubmit}
+                uploadedBills={uploadedBills}
+                setUploadedBills={setUploadedBills}
+                handleVerifyElectricityBills={handleVerifyElectricityBills}
+                billApiConnected={billApiConnected}
+                handleBillApiConnect={handleBillApiConnect}
+                mobileDetails={mobileDetails}
+                setMobileDetails={setMobileDetails}
+                verifyMobileDetails={verifyMobileDetails}
+                lpgDetails={lpgDetails}
+                setLpgDetails={setLpgDetails}
+                lpgPdfFile={lpgPdfFile}
+                setLpgPdfFile={setLpgPdfFile}
+                handleVerifyLpg={handleVerifyLpg}
+              />
             )}
 
-            {/* RATION CARD
+            {/* RATION CARD SECTION */}
             {selectedSection === "House Hold and Ration Card Detail" && (
-              <div className="space-y-6">
-                <div className="rounded-lg">
-                  <div className="flex items-start gap-3 mb-4">
-                    <Shield className="h-6 w-6 text-primary mt-0.5" />
-                    <div>
-                      <h3 className="text-lg font-semibold text-primary mb-1">
-                        Ration Card
-                      </h3>
-                    </div>
-                  </div>
-
-                  {rationFetched ? (
-                    <div className="space-y-6">
-                      <div className="p-4 bg-success/10 border border-success rounded-lg">
-                        <div className="flex items-center gap-2 text-success mb-2">
-                          <CheckCircle2 className="h-5 w-5" />
-                          <span className="font-semibold">
-                            Ration Details Fetched Successfully
-                          </span>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          Your ration card details have been successfully fetched.
-                          {digilockerConnected && " DigiLocker connected."}
-                        </p>
-                      </div>
-
-                      <div className="p-4 border rounded-lg bg-muted/40 space-y-4">
-                        <h4 className="font-semibold text-primary text-md">
-                          Household Details
-                        </h4>
-
-                        <div className="grid md:grid-cols-2 gap-4">
-                          <div>
-                            <Label>Household Size</Label>
-                            <Input
-                              value={rationDetails.householdSize}
-                              readOnly
-                              className="bg-gray-100"
-                            />
-                          </div>
-
-                          <div>
-                            <Label>Household Dependents</Label>
-                            <Input
-                              value={rationDetails.dependentCount}
-                              readOnly
-                              className="bg-gray-100"
-                            />
-                          </div>
-
-                          <div>
-                            <Label>Earners Count</Label>
-                            <Input
-                              value={rationDetails.earnersCount}
-                              readOnly
-                              className="bg-gray-100"
-                            />
-                          </div>
-
-                          <div>
-                            <Label>Dependency Ratio</Label>
-                            <Input
-                              value={rationDetails.dependencyRatio}
-                              readOnly
-                              className="bg-gray-100"
-                            />
-                          </div>
-
-                          <div>
-                            <Label>Ration Card Category</Label>
-                            <Input
-                              value={rationDetails.rationCategory}
-                              readOnly
-                              className="bg-gray-100"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="p-4 border rounded-lg bg-muted/40 space-y-4">
-                        <div className="flex justify-between items-center">
-                          <h4 className="font-semibold text-primary text-md">
-                            SECC Category
-                          </h4>
-
-                          {!seccFetched && (
-                            <Button
-                              variant="default"
-                              onClick={handleFetchSECC}
-                              disabled={fetchingSECC}
-                            >
-                              {fetchingSECC ? "Fetching..." : "Fetch SECC"}
-                            </Button>
-                          )}
-                        </div>
-
-                        {seccFetched && (
-                          <div className="grid md:grid-cols-2 gap-4">
-                            <div>
-                              <Label>SECC Category</Label>
-                              <Input
-                                value={seccDetails.category}
-                                readOnly
-                                className="bg-gray-100"
-                              />
-                            </div>
-
-                            <div>
-                              <Label>SECC Score</Label>
-                              <Input
-                                value={seccDetails.score}
-                                readOnly
-                                className="bg-gray-100"
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label>Ration Card Number *</Label>
-
-                        <Input
-                          type="text"
-                          placeholder="Enter 10-digit Ration Card Number"
-                          maxLength={10}
-                          value={rationNumber}
-                          onChange={(e) => {
-                            const val = e.target.value.replace(/\D/g, "");
-                            setRationNumber(val);
-                          }}
-                        />
-
-                        {rationError && (
-                          <p className="text-red-500 text-sm">{rationError}</p>
-                        )}
-                      </div>
-
-                      <div className="grid md:grid-cols-2 gap-3">
-                        <Button
-                          type="button"
-                          variant="default"
-                          onClick={handleFetchRationDetails}
-                          disabled={fetchingRation}
-                        >
-                          <Shield className="h-4 w-4 mr-2" />
-                          {fetchingRation ? "Fetching..." : "Fetch Ration Details"}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )} */}
-            {selectedSection === "House Hold and Ration Card Detail" && (
-              <div className="space-y-6">
-                <div className="rounded-lg">
-
-                  {/* HEADER */}
-                  <div className="flex items-start gap-3 mb-4">
-                    <Shield className="h-6 w-6 text-primary mt-0.5" />
-                    <div>
-                      <h3 className="text-lg font-semibold text-primary mb-1">Ration Card</h3>
-                    </div>
-                  </div>
-
-                  {/* IF FETCHED */}
-                  {rationFetched ? (
-                    <div className="space-y-6">
-
-                      {/* SUCCESS BOX */}
-                      <div className="p-4 bg-muted border border-success rounded-lg">
-                        <div className="flex items-center gap-2 text-success mb-2">
-                          <CheckCircle2 className="h-5 w-5" />
-                          <span className="font-semibold">Ration Details Fetched Successfully</span>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          Your ration card details have been successfully fetched.
-                          {digilockerConnected && " DigiLocker connected."}
-                        </p>
-                      </div>
-
-                      {/* ⭐ RATION DETAILS (READ-ONLY) */}
-                      <div className="p-4 space-y-4">
-
-                        <h4 className="font-semibold text-primary text-md">Household Details</h4>
-
-                        <div className="grid md:grid-cols-2 gap-4">
-
-                          <div>
-                            <Label>Household Size</Label>
-                            <Input value={rationDetails.householdSize} readOnly className="bg-gray-100" />
-                          </div>
-
-                          <div>
-                            <Label>Household Dependents</Label>
-                            <Input value={rationDetails.dependentCount} readOnly className="bg-gray-100" />
-                          </div>
-
-                          <div>
-                            <Label>Earners Count</Label>
-                            <Input value={rationDetails.earnersCount} readOnly className="bg-gray-100" />
-                          </div>
-
-                          <div>
-                            <Label>Dependency Ratio</Label>
-                            <Input value={rationDetails.dependencyRatio} readOnly className="bg-gray-100" />
-                          </div>
-
-                          <div>
-                            <Label>Ration Card Category</Label>
-                            <Input value={rationDetails.rationCategory} readOnly className="bg-gray-100" />
-                          </div>
-
-                        </div>
-                      </div>
-
-                      {/* ⭐ SECC CATEGORY SECTION */}
-                      <div className="p-4 space-y-4">
-                        <div className="flex justify-between items-center">
-                          <h4 className="font-semibold text-primary text-md">SECC Category</h4>
-
-                          {!seccFetched && (
-                            <Button
-                              variant="default"
-                              onClick={handleFetchSECC}
-                              disabled={fetchingSECC}
-                            >
-                              {fetchingSECC ? "Fetching..." : "Fetch SECC"}
-                            </Button>
-                          )}
-                        </div>
-
-                        {seccFetched && (
-                          <div className="grid md:grid-cols-2 gap-4">
-                            <div>
-                              <Label>SECC Category</Label>
-                              <Input value={seccDetails.category} readOnly className="bg-gray-100" />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                    </div>
-                  ) : (
-                    /* BEFORE FETCH */
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label>Ration Card Number *</Label>
-
-                        <Input
-                          type="text"
-                          placeholder="Enter 12-digit Ration Card Number"
-                          maxLength={12}
-                          value={rationNumber}
-                          onChange={(e) => {
-                            const val = e.target.value.replace(/\D/g, "").trim(); // remove spaces + non-digits
-                            setRationNumber(val);
-                          }}
-                        />
-
-                        {/* Error message */}
-                        {rationError && (
-                          <p className="text-red-500 text-sm">{rationError}</p>
-                        )}
-                      </div>
-
-                      <div className="grid md:grid-cols-2 gap-3">
-                        <Button
-                          type="button"
-                          variant="default"
-                          onClick={handleFetchRationDetails}
-                          disabled={fetchingRation}
-                        >
-                          <Shield className="h-4 w-4 mr-2" />
-                          {fetchingRation ? "Fetching..." : "Fetch Ration Details"}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
+              <RationSection
+                rationFetched={rationFetched}
+                rationDetails={rationDetails}
+                digilockerConnected={digilockerConnected}
+                seccFetched={seccFetched}
+                seccDetails={seccDetails}
+                fetchingSECC={fetchingSECC}
+                fetchingRation={fetchingRation}
+                rationNumber={rationNumber}
+                setRationNumber={setRationNumber}
+                rationError={rationError}
+                handleFetchRationDetails={handleFetchRationDetails}
+              />
             )}
 
-            {/* ENROLLED SCHEMES SECTION */}
+            {/* ENROLLED SCHEMES */}
             {selectedSection === "schemes" && (
-              <Form {...enrolledSchemesForm}>
-                <form
-                  onSubmit={enrolledSchemesForm.handleSubmit(onEnrolledSchemesSubmit)}
-                  className="space-y-6"
-                >
-                  <FormField
-                    control={enrolledSchemesForm.control}
-                    name="enrolledMgnrega"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Enrolled in MGNREGA *</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select Yes / No" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="Yes">Yes</SelectItem>
-                            <SelectItem value="No">No</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={enrolledSchemesForm.control}
-                    name="enrolledPmUjjwala"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Enrolled in PM Ujjwala Yojana *</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select Yes / No" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="Yes">Yes</SelectItem>
-                            <SelectItem value="No">No</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={enrolledSchemesForm.control}
-                    name="enrolledPmJay"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Enrolled in PM-JAY (Ayushman Bharat) *</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select Yes / No" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="Yes">Yes</SelectItem>
-                            <SelectItem value="No">No</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={enrolledSchemesForm.control}
-                    name="enrolledPensionScheme"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Enrolled in Pension Scheme *</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select Yes / No" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="Yes">Yes</SelectItem>
-                            <SelectItem value="No">No</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <Button type="submit" className="w-full">
-                    Save Enrolled Schemes
-                  </Button>
-                </form>
-              </Form>
+              <EnrolledSchemesSection
+                form={enrolledSchemesForm}
+                onSubmit={onEnrolledSchemesSubmit}
+              />
             )}
 
-            {/* LOAN */}
+            {/* LOAN SECTION */}
             {selectedSection === "loan" && (
-              <Form {...loanForm}>
-                <form
-                  onSubmit={loanForm.handleSubmit(onLoanSubmit)}
-                  className="space-y-6"
-                >
-                  <div className="p-4 bg-primary/5 rounded-lg border border-primary/10">
-                    <p className="text-sm font-medium text-primary mb-2">
-                      💰 Loan Eligibility Calculator
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {selectedSchemeName
-                        ? `You’re applying under the "${selectedSchemeName}" scheme. Enter your desired loan amount and purpose. For amounts above ₹1 Lakh, we’ll ask for a bit more detail about your expenses.`
-                        : "Enter your desired loan amount and purpose. For amounts above ₹1 Lakh, additional expense details will be required."}
-                    </p>
-                  </div>
-
-                  <FormField
-                    control={loanForm.control}
-                    name="loanAmount"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Desired Loan Amount (₹) *</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            placeholder="Enter amount (e.g., 50100)"
-                            {...field}
-                            onChange={(e) => {
-                              field.onChange(e);
-                              const amount = parseFloat(e.target.value) || 0;
-                              setLoanAmount(amount);
-                            }}
-                          />
-                        </FormControl>
-                        <p className="text-xs text-muted-foreground">
-                          {loanAmount > LOAN_THRESHOLD ? (
-                            <span className="text-accent font-medium">
-                              ⚠️ Amount above ₹{(LOAN_THRESHOLD / 1000).toFixed(0)}K - Additional
-                              details required
-                            </span>
-                          ) : (
-                            <span className="text-success font-medium">
-                              ✓ Amount within basic eligibility
-                            </span>
-                          )}
-                        </p>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={loanForm.control}
-                    name="purpose"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Purpose of Loan *</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Describe how you will use this loan (e.g., business expansion, medical expenses, education)"
-                            className="min-h-[100px]"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {showExpensesForLoan && loanAmount > LOAN_THRESHOLD && (
-                    <div className="space-y-6 p-6 border-2 border-accent rounded-lg bg-accent/5">
-                      <div className="flex items-center gap-2 text-accent">
-                        <AlertCircle className="h-5 w-5" />
-                        <h3 className="font-semibold">
-                          Additional Financial Information Required
-                        </h3>
-                      </div>
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Monthly Household Expenses (₹) *</Label>
-                          <Input
-                            type="number"
-                            placeholder="e.g., 15010"
-                            required
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Monthly Business Expenses (₹)</Label>
-                          <Input type="number" placeholder="e.g., 10000" />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Existing Loan Repayments (₹/month)</Label>
-                          <Input type="number" placeholder="e.g., 5010" />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Electricity Bill (₹/month)</Label>
-                          <Input type="number" placeholder="e.g., 1200" />
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Commodities Owned</Label>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                          {[
-                            "TV",
-                            "Refrigerator",
-                            "Washing Machine",
-                            "Two-Wheeler",
-                            "Four-Wheeler",
-                            "Tractor",
-                          ].map((item) => (
-                            <div
-                              key={item}
-                              className="flex items-center space-x-2"
-                            >
-                              <Checkbox id={`loan-${item}`} />
-                              <label
-                                htmlFor={`loan-${item}`}
-                                className="text-sm cursor-pointer"
-                              >
-                                {item}
-                              </label>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="p-4 bg-muted rounded-lg">
-                    <p className="text-sm text-muted-foreground">
-                      💡 Tip: Make sure all previous profile sections are completed for faster
-                      loan approval, especially when applying under a specific scheme like{" "}
-                      {selectedSchemeName
-                        ? `"${selectedSchemeName}".`
-                        : "NBCFDC concessional schemes."}
-                    </p>
-                  </div>
-
-                  <Button type="submit" className="w-full" size="lg">
-                    Submit Loan Application
-                  </Button>
-                </form>
-              </Form>
+              <LoanSection
+                form={loanForm}
+                onSubmit={onLoanSubmit}
+                LOAN_THRESHOLD={LOAN_THRESHOLD}
+                loanAmount={loanAmount}
+                setLoanAmount={setLoanAmount}
+                showExpensesForLoan={showExpensesForLoan}
+                selectedSchemeName={selectedSchemeName}
+              />
             )}
-
           </CardContent>
         </Card>
       </div>

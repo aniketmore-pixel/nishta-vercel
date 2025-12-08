@@ -15,7 +15,7 @@ import {
 const menuItems = [
   { title: "Dashboard", url: "/dashboard", icon:Home, end: true },
   { title: "Complete Profile", url: "/dashboard/profile", icon: User },
-  { title: "Loan Eligibility", url: "/dashboard/eligibility", icon: TrendingUp },
+  // { title: "Loan Eligibility", url: "/dashboard/eligibility", icon: TrendingUp },
   { title: "Schemes", url: "/dashboard/benefits", icon: Gift },
   { title: "Track Application", url: "/dashboard/track", icon: FileText },
 ];

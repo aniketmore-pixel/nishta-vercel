@@ -57,10 +57,7 @@ export const Header = () => {
 
       {/* Right Section */}
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" className="gap-2">
-          <Globe className="h-4 w-4" />
-          <span className="hidden sm:inline">{language}</span>
-        </Button>
+        
 
         {/* Auth Buttons */}
         <div className="hidden md:flex items-center gap-2">

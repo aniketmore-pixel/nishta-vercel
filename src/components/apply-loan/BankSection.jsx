@@ -14,34 +14,40 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 
-export const BankSection = ({ form, onSubmit }) => {
+export const BankSection = ({ form, onSubmit, loanApplicationId }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 🔹 Prefill bank details from backend (for refresh)
+  // 🔹 Prefill bank details from backend (for refresh / View Application)
   useEffect(() => {
     const aadhar_no =
       typeof window !== "undefined"
         ? window.localStorage.getItem("aadhar_no")
         : null;
 
-    const loanId =
-      typeof window !== "undefined"
+    const loanIdFromPropOrLS =
+      loanApplicationId ||
+      (typeof window !== "undefined"
         ? window.localStorage.getItem("loan_application_id")
-        : null;
+        : null);
 
-    if (!aadhar_no || !loanId) {
+    console.log("📌 BankSection prefill -> using IDs:", {
+      aadhar_no,
+      loan_application_id: loanIdFromPropOrLS,
+    });
+
+    if (!aadhar_no || !loanIdFromPropOrLS) {
       console.log(
-        "ℹ️ No aadhar_no or loan_application_id in localStorage. Skipping bank prefill."
+        "ℹ️ No aadhar_no or loan_application_id. Skipping bank_details prefill."
       );
       return;
     }
 
-    const fetchBankDetails = async () => {
+    const fetchBank = async () => {
       try {
         console.log("🔵 Fetching existing bank_details for form prefill...");
         const url = `http://localhost:5010/api/bank-details?aadhar_no=${encodeURIComponent(
           aadhar_no
-        )}&loan_application_id=${encodeURIComponent(loanId)}`;
+        )}&loan_application_id=${encodeURIComponent(loanIdFromPropOrLS)}`;
 
         const res = await fetch(url);
         const data = await res.json();
@@ -61,6 +67,7 @@ export const BankSection = ({ form, onSubmit }) => {
             ifscCode: record.ifsc_code || "",
             branchName: record.branch_name || "",
             upiId: record.upi_id || "",
+            consent: true, // assume previously consented if data exists
           });
 
           console.log("✅ Bank form prefilled from backend");
@@ -74,10 +81,10 @@ export const BankSection = ({ form, onSubmit }) => {
       }
     };
 
-    fetchBankDetails();
-  }, [form]);
+    fetchBank();
+  }, [form, loanApplicationId]);
 
-  // 🔹 Submit: send to backend so it can link to loan_application_id + aadhar_no
+  // 🔹 Submit: save to backend + then call parent onSubmit
   const handleSubmit = async (values) => {
     setIsSubmitting(true);
     try {
@@ -87,13 +94,19 @@ export const BankSection = ({ form, onSubmit }) => {
           : null;
 
       const loan_application_id =
-        typeof window !== "undefined"
+        loanApplicationId ||
+        (typeof window !== "undefined"
           ? window.localStorage.getItem("loan_application_id")
-          : null;
+          : null);
+
+      console.log("📌 BankSection submit -> IDs:", {
+        aadhar_no,
+        loan_application_id,
+      });
 
       if (!aadhar_no || !loan_application_id) {
         console.error(
-          "❌ Missing aadhar_no or loan_application_id in localStorage"
+          "❌ Missing aadhar_no or loan_application_id in BankSection"
         );
       }
 
@@ -120,20 +133,15 @@ export const BankSection = ({ form, onSubmit }) => {
       console.log("🟣 Bank Details API response:", data);
 
       if (res.ok && data.success) {
-        console.log("✅ Bank details saved successfully on backend");
-        // parent ApplyLoan will show toast + mark section completed
-        if (onSubmit) {
-          onSubmit(values);
-        }
+        console.log("✅ Bank details saved successfully");
+        if (onSubmit) onSubmit(values);
       } else {
         console.error("❌ Error from /api/bank-details:", data);
-        // you can plug in your toast here if you want
+        if (onSubmit) onSubmit(values);
       }
     } catch (err) {
       console.error("🔥 Failed to save bank details:", err);
-      if (onSubmit) {
-        onSubmit(values);
-      }
+      if (onSubmit) onSubmit(values);
     } finally {
       setIsSubmitting(false);
     }

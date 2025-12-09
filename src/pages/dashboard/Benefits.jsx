@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from "react";
 import {
   Card,
@@ -127,11 +125,15 @@ const Benefits = () => {
   const [consent, setConsent] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
 
+  // 🔹 Map of scheme.title -> loan_application_id (for schemes already applied)
+  const [schemeLoanMap, setSchemeLoanMap] = useState({});
+
   useEffect(() => {
-    const checkEligibility = async () => {
+    const init = async () => {
       const aadhar_no = localStorage.getItem("aadhar_no");
       if (!aadhar_no) return;
 
+      // 1️⃣ Check eligibility (same as before)
       try {
         const res = await fetch(
           `http://localhost:5010/api/eligible-beneficiary/${aadhar_no}`
@@ -142,12 +144,59 @@ const Benefits = () => {
         console.error("Eligibility check failed:", err);
         setEligible(false);
       }
+
+      // 2️⃣ Fetch existing applications for this user (to know which schemes are already applied)
+      try {
+        const resApps = await fetch(
+          `http://localhost:5010/api/applications/${aadhar_no}`
+        );
+        const dataApps = await resApps.json();
+
+        if (!resApps.ok || !dataApps.success || !Array.isArray(dataApps.applications)) {
+          console.log("No existing applications or failed to fetch applications.");
+          return;
+        }
+
+        const map = {};
+
+        dataApps.applications.forEach((app) => {
+          if (app.scheme && app.loan_application_id) {
+            // app.scheme currently stores the scheme value you sent from frontend (selectedScheme.title)
+            map[app.scheme] = app.loan_application_id;
+            // Optional: also mirror into localStorage per-scheme if you want
+            localStorage.setItem(`loanId:${app.scheme}`, app.loan_application_id);
+          }
+        });
+
+        setSchemeLoanMap(map);
+        console.log("✅ Built scheme → loan ID map:", map);
+      } catch (err) {
+        console.error("Failed to fetch existing applications:", err);
+      }
     };
 
-    checkEligibility();
+    init();
   }, []);
 
   const handleCardApplyClick = (scheme) => {
+    // 🔍 Check if this scheme already has an application
+    const existingLoanId = schemeLoanMap[scheme.title];
+
+    if (existingLoanId) {
+      // ✅ Already applied – behave as "View" (no popup)
+      localStorage.setItem("loan_application_id", existingLoanId);
+
+      const schemeParam = encodeURIComponent(scheme.title);
+      const queryParams = new URLSearchParams({
+        scheme: schemeParam,
+        applicationId: existingLoanId,
+      }).toString();
+
+      window.location.href = `http://localhost:8080/dashboard/apply?${queryParams}`;
+      return;
+    }
+
+    // 🆕 New application – open popup (old flow)
     setSelectedScheme(scheme);
     setConsent(false);
   };
@@ -172,7 +221,7 @@ const Benefits = () => {
         },
         body: JSON.stringify({
           aadhar_no,
-          scheme: selectedScheme.title,
+          scheme: selectedScheme.title, // 👈 this same value is stored in track_application.scheme
         }),
       });
 
@@ -193,10 +242,17 @@ const Benefits = () => {
         return;
       }
 
-      // ✅ Save loan ID to localStorage
+      // ✅ Save loan ID to localStorage (global current + per-scheme)
       localStorage.setItem("loan_application_id", applicationId);
+      localStorage.setItem(`loanId:${selectedScheme.title}`, applicationId);
 
-      // Redirect user
+      // ✅ Update in-memory map so UI updates without refresh
+      setSchemeLoanMap((prev) => ({
+        ...prev,
+        [selectedScheme.title]: applicationId,
+      }));
+
+      // Redirect user (same as before)
       const schemeParam = encodeURIComponent(selectedScheme.title);
 
       const queryParams = new URLSearchParams({
@@ -236,54 +292,70 @@ const Benefits = () => {
         </h2>
 
         <div className="grid md:grid-cols-2 gap-6">
-          {nbcfdcSchemes.map((scheme, index) => (
-            <Card
-              key={index}
-              className="shadow-card border border-primary/20 hover:border-primary/40 hover:shadow-lg transition-all duration-200 rounded-xl flex flex-col"
-            >
-              <CardHeader>
-                <CardTitle>{scheme.title}</CardTitle>
-                <CardDescription>{scheme.description}</CardDescription>
-              </CardHeader>
+          {nbcfdcSchemes.map((scheme, index) => {
+            const loanIdForScheme = schemeLoanMap[scheme.title];
+            const isApplied = !!loanIdForScheme;
 
-              <CardContent className="flex flex-col flex-1">
-                <div className="flex-1 space-y-3">
-                  <div className="p-3 bg-primary/5 rounded-lg">
-                    <div className="text-xs uppercase">Max Loan Amount</div>
-                    <div className="text-base font-semibold text-primary">
-                      {scheme.amount}
-                    </div>
-                  </div>
+            return (
+              <Card
+                key={index}
+                className={`shadow-card border hover:border-primary/40 hover:shadow-lg transition-all duration-200 rounded-xl flex flex-col ${
+                  isApplied ? "border-primary bg-primary/5" : "border-primary/20"
+                }`}
+              >
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between gap-2">
+                    <span>{scheme.title}</span>
+                    {isApplied && (
+                      <span className="text-xs px-2 py-1  rounded-full bg-primary text-primary-foreground">
+                        Already Applied
+                      </span>
+                    )}
+                  </CardTitle>
+                  <CardDescription>{scheme.description}</CardDescription>
+                </CardHeader>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="p-3 bg-muted rounded-lg">
-                      <div className="text-xs uppercase">Interest</div>
-                      <div className="text-sm whitespace-pre-line">
-                        {scheme.interest}
+                <CardContent className="flex flex-col flex-1">
+                  <div className="flex-1 space-y-3">
+                    <div className="p-3 bg-primary/5 rounded-lg">
+                      <div className="text-xs uppercase">Max Loan Amount</div>
+                      <div className="text-base font-semibold text-primary">
+                        {scheme.amount}
                       </div>
                     </div>
 
-                    <div className="p-3 bg-muted rounded-lg">
-                      <div className="text-xs uppercase">Repayment</div>
-                      <div className="text-sm">{scheme.repayment}</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="p-3 bg-muted rounded-lg">
+                        <div className="text-xs uppercase">Interest</div>
+                        <div className="text-sm whitespace-pre-line">
+                          {scheme.interest}
+                        </div>
+                      </div>
+
+                      <div className="p-3 bg-muted rounded-lg">
+                        <div className="text-xs uppercase">Repayment</div>
+                        <div className="text-sm">{scheme.repayment}</div>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <Button
-                  className="w-full mt-2"
-                  onClick={() => handleCardApplyClick(scheme)}
-                  disabled={!eligible}
-                >
-                  Apply Now
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+                  <Button
+                    className="w-full mt-2"
+                    onClick={() => handleCardApplyClick(scheme)}
+                    // ❗ If already applied: always allow "View" even if eligibility later becomes false
+                    disabled={!eligible && !isApplied}
+                    variant={isApplied ? "outline" : "default"}
+                  >
+                    {isApplied ? "View Application" : "Apply Now"}
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       </div>
 
-      {/* Popup */}
+      {/* Popup only for NEW applications (no popup for "View Application" */}
       {selectedScheme && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-background rounded-lg shadow-lg max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
@@ -291,10 +363,7 @@ const Benefits = () => {
               <h3 className="text-lg font-semibold text-primary">
                 Apply for {selectedScheme.title}
               </h3>
-              <button
-                className="text-xl"
-                onClick={handleClosePopup}
-              >
+              <button className="text-xl" onClick={handleClosePopup}>
                 ×
               </button>
             </div>

@@ -24,24 +24,31 @@ export const LoanSection = ({
   setLoanAmount,
   showExpensesForLoan,
   selectedSchemeName,
+  loanApplicationId,
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 🔹 Prefill loan details from backend (for refresh)
+  // 🔹 Prefill loan details from backend (for refresh / View Application)
   useEffect(() => {
     const aadhar_no =
       typeof window !== "undefined"
         ? window.localStorage.getItem("aadhar_no")
         : null;
 
-    const loanId =
-      typeof window !== "undefined"
+    const loanIdFromPropOrLS =
+      loanApplicationId ||
+      (typeof window !== "undefined"
         ? window.localStorage.getItem("loan_application_id")
-        : null;
+        : null);
 
-    if (!aadhar_no || !loanId) {
+    console.log("📌 LoanSection prefill -> using IDs:", {
+      aadhar_no,
+      loan_application_id: loanIdFromPropOrLS,
+    });
+
+    if (!aadhar_no || !loanIdFromPropOrLS) {
       console.log(
-        "ℹ️ No aadhar_no or loan_application_id in localStorage. Skipping loan prefill."
+        "ℹ️ No aadhar_no or loan_application_id. Skipping loan_details prefill."
       );
       return;
     }
@@ -51,7 +58,7 @@ export const LoanSection = ({
         console.log("🔵 Fetching existing loan_details for form prefill...");
         const url = `http://localhost:5010/api/loan-details?aadhar_no=${encodeURIComponent(
           aadhar_no
-        )}&loan_application_id=${encodeURIComponent(loanId)}`;
+        )}&loan_application_id=${encodeURIComponent(loanIdFromPropOrLS)}`;
 
         const res = await fetch(url);
         const data = await res.json();
@@ -81,7 +88,6 @@ export const LoanSection = ({
             purpose: record.purpose_of_loan || "",
           });
 
-          // update parent state so tip text behaves correctly
           const parsedAmount = parseFloat(loanAmountStr) || 0;
           setLoanAmount(parsedAmount);
 
@@ -97,9 +103,9 @@ export const LoanSection = ({
     };
 
     fetchLoanDetails();
-  }, [form, setLoanAmount]);
+  }, [form, setLoanAmount, loanApplicationId]);
 
-  // 🔹 Submit: save to backend, then run parent onSubmit logic
+  // 🔹 Submit: save loan details to backend, then call parent onSubmit
   const handleSubmit = async (values) => {
     setIsSubmitting(true);
     try {
@@ -109,13 +115,19 @@ export const LoanSection = ({
           : null;
 
       const loan_application_id =
-        typeof window !== "undefined"
+        loanApplicationId ||
+        (typeof window !== "undefined"
           ? window.localStorage.getItem("loan_application_id")
-          : null;
+          : null);
+
+      console.log("📌 LoanSection submit -> IDs:", {
+        aadhar_no,
+        loan_application_id,
+      });
 
       if (!aadhar_no || !loan_application_id) {
         console.error(
-          "❌ Missing aadhar_no or loan_application_id in localStorage"
+          "❌ Missing aadhar_no or loan_application_id in LoanSection"
         );
       }
 
@@ -124,7 +136,7 @@ export const LoanSection = ({
         loan_application_id,
         loanAmount: values.loanAmount,
         desiredTenure: values.desiredTenure,
-        purpose: values.purpose, // 👈 will be mapped to purpose_of_loan in backend
+        purpose: values.purpose,
       };
 
       console.log("🔵 Sending payload to /api/loan-details:", payload);
@@ -140,22 +152,14 @@ export const LoanSection = ({
 
       if (res.ok && data.success) {
         console.log("✅ Loan details saved successfully on backend");
-        // Now let parent ApplyLoan handle threshold logic & toasts
-        if (onSubmit) {
-          onSubmit(values);
-        }
+        if (onSubmit) onSubmit(values);
       } else {
         console.error("❌ Error from /api/loan-details:", data);
-        // still calling onSubmit keeps your UX flow intact if you want
-        if (onSubmit) {
-          onSubmit(values);
-        }
+        if (onSubmit) onSubmit(values);
       }
     } catch (err) {
       console.error("🔥 Failed to save loan details:", err);
-      if (onSubmit) {
-        onSubmit(values);
-      }
+      if (onSubmit) onSubmit(values);
     } finally {
       setIsSubmitting(false);
     }

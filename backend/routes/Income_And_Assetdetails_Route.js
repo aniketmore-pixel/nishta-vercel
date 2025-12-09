@@ -6,7 +6,6 @@ const router = express.Router();
 
 /**
  * 📌 Get Occupation from eligible_beneficiary by Aadhaar
- *    - No strict length validation now (to avoid blocking in dev)
  */
 router.get("/income-asset/occupation/:aadhar_no", async (req, res) => {
   const { aadhar_no } = req.params;
@@ -14,7 +13,6 @@ router.get("/income-asset/occupation/:aadhar_no", async (req, res) => {
   console.log("🔵 [GET] /income-asset/occupation/", aadhar_no);
 
   if (!aadhar_no) {
-    console.log("❌ Error: aadhar_no missing");
     return res.status(400).json({
       success: false,
       message: "Aadhaar number is required",
@@ -67,7 +65,6 @@ router.get("/income-asset/occupation/:aadhar_no", async (req, res) => {
 
 /**
  * 📥 Get saved Income & Asset Details for aadhar_no + loan_application_id
- *    - Both are expected from frontend (localStorage)
  */
 router.get("/income-asset", async (req, res) => {
   const { aadhar_no, loan_application_id } = req.query;
@@ -125,16 +122,14 @@ router.get("/income-asset", async (req, res) => {
 
 /**
  * 🧾 Save / Update Income & Asset Details
- *  - Uses loan_application_id from body if present
- *  - Else falls back to latest loan_application_id from track_application
- *  - Upserts into income_asset (loan_application_id + aadhar_no)
+ *  ❗ loan_application_id is REQUIRED – no more "latest application" fallback
  */
 router.post("/income-asset", async (req, res) => {
   console.log("🔵 [POST] /income-asset", req.body);
 
   const {
     aadhar_no,
-    loan_application_id: clientLoanAppId, // from frontend/localStorage
+    loan_application_id,        // MUST come from frontend/localStorage
     primaryIncomeSource,
     monthlyIncome,
     annualIncome,
@@ -142,58 +137,18 @@ router.post("/income-asset", async (req, res) => {
     estimatedAssetValue,
   } = req.body;
 
-  if (!aadhar_no || !primaryIncomeSource) {
+  if (!aadhar_no || !loan_application_id || !primaryIncomeSource) {
     return res.status(400).json({
       success: false,
-      message: "aadhar_no and primaryIncomeSource are required",
+      message:
+        "aadhar_no, loan_application_id and primaryIncomeSource are required",
     });
   }
 
   try {
-    // 1️⃣ Decide which loan_application_id to use
-    let loan_application_id = clientLoanAppId;
-
-    if (!loan_application_id) {
-      console.log(
-        "🟡 No loan_application_id in body. Fetching latest for Aadhaar:",
-        aadhar_no
-      );
-
-      const { data: appData, error: appError } = await supabase
-        .from("track_application")
-        .select("loan_application_id, aadhar_no")
-        .eq("aadhar_no", aadhar_no)
-        .order("applied_on", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      console.log("🟣 Supabase track_application Response:");
-      console.log("➡️ Data:", appData);
-      console.log("➡️ Error:", appError);
-
-      if (appError) {
-        console.error("🔥 Supabase Error (track_application):", appError);
-        return res.status(500).json({
-          success: false,
-          message: "Database error while fetching loan application",
-        });
-      }
-
-      if (!appData || !appData.loan_application_id) {
-        console.log("⚠️ No loan application found for Aadhaar:", aadhar_no);
-        return res.status(400).json({
-          success: false,
-          message:
-            "No loan application found for this Aadhaar. Please apply for a loan first.",
-        });
-      }
-
-      loan_application_id = appData.loan_application_id;
-    }
-
     console.log("✅ Using loan_application_id:", loan_application_id);
 
-    // 2️⃣ Parse numeric values
+    // Parse numeric values safely
     const monthlyIncomeNum =
       monthlyIncome !== undefined &&
       monthlyIncome !== null &&
@@ -220,7 +175,6 @@ router.post("/income-asset", async (req, res) => {
         ? Number(estimatedAssetValue)
         : null;
 
-    // 3️⃣ Upsert into income_asset
     console.log("🟡 Upserting into income_asset...");
 
     const { data, error } = await supabase
@@ -244,7 +198,7 @@ router.post("/income-asset", async (req, res) => {
       .select()
       .single();
 
-    console.log("🟣 Supabase income_asset Response:");
+    console.log("🟣 Supabase income_asset upsert Response:");
     console.log("➡️ Data:", data);
     console.log("➡️ Error:", error);
 

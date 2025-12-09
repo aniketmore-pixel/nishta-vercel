@@ -18,11 +18,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea"; // (not used right now but fine)
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react"; // 👈 for the spinner icon
+import { Loader2 } from "lucide-react";
 
-export const IncomeSection = ({ form, onSubmit, selectedSchemeName }) => {
+export const IncomeSection = ({
+  form,
+  onSubmit,
+  selectedSchemeName,
+  loanApplicationId,
+}) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // 🔹 Auto-fetch occupation from eligible_beneficiary using Aadhaar
@@ -78,31 +83,39 @@ export const IncomeSection = ({ form, onSubmit, selectedSchemeName }) => {
     fetchOccupation();
   }, [form]);
 
-  // 🔹 Prefill Income & Asset form from backend (for refresh)
+  // 🔹 Prefill Income & Asset form from backend (for refresh / View Application)
   useEffect(() => {
     const aadharNo =
       typeof window !== "undefined"
         ? window.localStorage.getItem("aadhar_no")
         : null;
 
-    const loanId =
-      typeof window !== "undefined"
+    const loanIdFromPropOrLS =
+      loanApplicationId ||
+      (typeof window !== "undefined"
         ? window.localStorage.getItem("loan_application_id")
-        : null;
+        : null);
 
-    if (!aadharNo || !loanId) {
+    console.log("📌 IncomeSection prefill -> using loan_application_id:", {
+      fromProp: loanApplicationId,
+      final: loanIdFromPropOrLS,
+    });
+
+    if (!aadharNo || !loanIdFromPropOrLS) {
       console.log(
-        "ℹ️ No aadhar_no or loan_application_id in localStorage. Skipping prefill."
+        "ℹ️ No aadhar_no or loan_application_id. Skipping income_asset prefill."
       );
       return;
     }
 
     const fetchIncomeAsset = async () => {
       try {
-        console.log("🔵 Fetching existing income_asset data for form prefill...");
+        console.log(
+          "🔵 Fetching existing income_asset data for form prefill..."
+        );
         const url = `http://localhost:5010/api/income-asset?aadhar_no=${encodeURIComponent(
           aadharNo
-        )}&loan_application_id=${encodeURIComponent(loanId)}`;
+        )}&loan_application_id=${encodeURIComponent(loanIdFromPropOrLS)}`;
 
         const res = await fetch(url);
         const data = await res.json();
@@ -112,7 +125,6 @@ export const IncomeSection = ({ form, onSubmit, selectedSchemeName }) => {
         if (res.ok && data.success && data.record) {
           const record = data.record;
 
-          // Keep existing values like employmentType (occupation)
           const currentValues = form.getValues();
 
           form.reset({
@@ -151,9 +163,9 @@ export const IncomeSection = ({ form, onSubmit, selectedSchemeName }) => {
     };
 
     fetchIncomeAsset();
-  }, [form]);
+  }, [form, loanApplicationId]);
 
-  // 🔹 Submit: send to backend so it can link to loan_application_id
+  // 🔹 Submit: send to backend with the correct loan_application_id
   const handleSubmit = async (values) => {
     setIsSubmitting(true);
     try {
@@ -163,23 +175,25 @@ export const IncomeSection = ({ form, onSubmit, selectedSchemeName }) => {
           : null;
 
       const loan_application_id =
-        typeof window !== "undefined"
+        loanApplicationId ||
+        (typeof window !== "undefined"
           ? window.localStorage.getItem("loan_application_id")
-          : null;
+          : null);
 
-      if (!aadhar_no) {
-        console.error("❌ aadhar_no missing in localStorage");
-      }
+      console.log("📌 IncomeSection submit -> IDs:", {
+        aadhar_no,
+        loan_application_id,
+      });
 
-      if (!loan_application_id) {
-        console.warn(
-          "⚠️ loan_application_id missing in localStorage. Backend will fallback to latest application."
+      if (!aadhar_no || !loan_application_id) {
+        console.error(
+          "❌ Missing aadhar_no or loan_application_id in IncomeSection"
         );
       }
 
       const payload = {
         aadhar_no,
-        loan_application_id, // 👈 send to backend
+        loan_application_id,
         primaryIncomeSource: values.primaryIncomeSource,
         monthlyIncome: values.monthlyIncome,
         annualIncome: values.annualIncome,
@@ -199,28 +213,19 @@ export const IncomeSection = ({ form, onSubmit, selectedSchemeName }) => {
       console.log("🟣 Income & Asset API response:", data);
 
       if (res.ok && data.success) {
-        if (data.loan_application_id && typeof window !== "undefined") {
-          window.localStorage.setItem(
-            "loan_application_id",
-            data.loan_application_id
-          );
-          console.log(
-            "✅ Stored loan_application_id in localStorage:",
-            data.loan_application_id
-          );
-        }
+        console.log("✅ Income & Asset details saved successfully");
 
-        // ✅ Let parent ApplyLoan handle toast + markSectionCompleted on success
         if (onSubmit) {
           onSubmit(values);
         }
       } else {
         console.error("❌ Error from /api/income-asset:", data);
-        // you can add a toast here if you want
+        if (onSubmit) {
+          onSubmit(values);
+        }
       }
     } catch (err) {
       console.error("🔥 Failed to save income & asset details:", err);
-      // Inform parent even on error if needed
       if (onSubmit) {
         onSubmit(values);
       }
@@ -415,7 +420,6 @@ export const IncomeSection = ({ form, onSubmit, selectedSchemeName }) => {
           </p>
         </div>
 
-        {/* ✅ Button with loading animation */}
         <Button type="submit" className="w-full" disabled={isSubmitting}>
           {isSubmitting ? (
             <span className="flex items-center justify-center gap-2">

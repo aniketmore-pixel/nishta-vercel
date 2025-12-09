@@ -1,5 +1,5 @@
 // src/pages/ApplyLoan.jsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -162,6 +162,9 @@ const ApplyLoan = () => {
     ? decodedScheme.replace(/–/g, " ").replace(/-/g, " ")
     : null;
 
+  // 🔹 Loan ID passed from Benefits (View Application)
+  const applicationIdFromQuery = searchParams.get("applicationId");
+
   const selectedSchemeName = cleanedSchemeName;
 
   const pageTitle = selectedSchemeName
@@ -169,6 +172,32 @@ const ApplyLoan = () => {
     : "Complete Your Profile 🚀";
 
   const [selectedSection, setSelectedSection] = useState("income");
+
+  // ✅ Single source of truth for ACTIVE loan_application_id
+  const [currentLoanApplicationId, setCurrentLoanApplicationId] = useState(() => {
+    if (applicationIdFromQuery) return applicationIdFromQuery;
+    if (typeof window !== "undefined") {
+      const ls = window.localStorage.getItem("loan_application_id");
+      return ls || "";
+    }
+    return "";
+  });
+
+  // Keep localStorage in sync when coming from Benefits (View / Apply)
+  useEffect(() => {
+    if (!applicationIdFromQuery) return;
+
+    console.log(
+      "🔵 ApplyLoan: syncing loan_application_id from URL:",
+      applicationIdFromQuery
+    );
+
+    setCurrentLoanApplicationId(applicationIdFromQuery);
+
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("loan_application_id", applicationIdFromQuery);
+    }
+  }, [applicationIdFromQuery]);
 
   // ✅ Persist completed sections across refresh
   const [completedSections, setCompletedSections] = useState(() => {
@@ -238,7 +267,7 @@ const ApplyLoan = () => {
     flag: null,
   });
 
-  // Documents – you can use this later in a dedicated section
+  // Documents
   const [uploadedDocuments, setUploadedDocuments] = useState({
     caste: { file: null, verified: false, verifying: false },
     aadhaar: { file: null, verified: false, verifying: false },
@@ -314,6 +343,8 @@ const ApplyLoan = () => {
     });
   };
 
+  const { toast: _t } = useToast();
+
   const onIncomeSubmit = (data) => {
     console.log("Income Income & Asset Details:", data);
     markSectionCompleted("income");
@@ -385,23 +416,6 @@ const ApplyLoan = () => {
     });
   };
 
-  const { toast: _t } = useToast(); // just to keep useToast usage consistent if needed later
-
-  const handleAadhaarVerification = async (method) => {
-    setVerifyingAadhaar(true);
-    setTimeout(() => {
-      setVerifyingAadhaar(false);
-      setAadhaarVerified(true);
-      if (method === "digilocker") setDigilockerConnected(true);
-      toast({
-        title: "Aadhaar Verified Successfully",
-        description: `Your Aadhaar has been verified using ${method === "blockchain" ? "blockchain" : "DigiLocker"
-          }.`,
-        variant: "success",
-      });
-    }, 2000);
-  };
-
   const handleBillApiConnect = () => {
     setTimeout(() => {
       setBillApiConnected(true);
@@ -411,57 +425,6 @@ const ApplyLoan = () => {
         variant: "success",
       });
     }, 1500);
-  };
-
-  const handleBillUpload = (type, files) => {
-    if (!files || files.length === 0) return;
-    const fileArray = Array.from(files);
-    const newBills = fileArray.map((file) => ({
-      files: [file],
-      verified: false,
-      verifying: false,
-    }));
-    setUploadedBills((prev) => ({
-      ...prev,
-      [type]: [...prev[type], ...newBills],
-    }));
-    toast({
-      title: "Files Uploaded",
-      description: `${fileArray.length} file(s) uploaded. Click verify to authenticate.`,
-    });
-  };
-
-  const handleVerifyBills = async (type) => {
-    const bills = uploadedBills[type];
-    if (bills.length === 0) {
-      toast({
-        title: "No Files to Verify",
-        description: "Please upload files first.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setUploadedBills((prev) => ({
-      ...prev,
-      [type]: prev[type].map((bill) => ({ ...bill, verifying: true })),
-    }));
-
-    setTimeout(() => {
-      setUploadedBills((prev) => ({
-        ...prev,
-        [type]: prev[type].map((bill) => ({
-          ...bill,
-          verified: true,
-          verifying: false,
-        })),
-      }));
-      toast({
-        title: "Bills Verified Successfully",
-        description: `All ${type} bills have been verified and authenticated.`,
-        variant: "success",
-      });
-    }, 2000);
   };
 
   const handleVerifyElectricityBills = async () => {
@@ -514,8 +477,10 @@ const ApplyLoan = () => {
     try {
       setMobileDetails((prev) => ({ ...prev, verifying: true }));
 
-      const aadhar_no = localStorage.getItem("aadhar_no");
-      const loan_application_id = localStorage.getItem("loan_application_id"); // <-- get loan ID
+      const aadhar_no =
+        typeof window !== "undefined"
+          ? localStorage.getItem("aadhar_no")
+          : null;
 
       const res = await fetch("http://localhost:5010/api/mobile/verify", {
         method: "POST",
@@ -643,9 +608,11 @@ const ApplyLoan = () => {
 
   const handleVerifyLpg = async () => {
     try {
-      const aadhar_no = localStorage.getItem("aadhar_no")?.trim();
-      const loan_application_id = localStorage.getItem("loan_application_id")?.trim();
-  
+      const aadhar_no =
+        typeof window !== "undefined"
+          ? localStorage.getItem("aadhar_no")
+          : null;
+
       if (!aadhar_no) {
         toast({
           title: "Aadhaar Missing",
@@ -707,26 +674,6 @@ const ApplyLoan = () => {
       });
     }
   };
-  
-
-  const handleDocumentUpload = (docType, file) => {
-    if (!file) return;
-    setUploadedDocuments((prev) => ({
-      ...prev,
-      [docType]: { file, verified: false, verifying: true },
-    }));
-    setTimeout(() => {
-      setUploadedDocuments((prev) => ({
-        ...prev,
-        [docType]: { ...prev[docType], verified: true, verifying: false },
-      }));
-      toast({
-        title: "Document Verified",
-        description: `${docType} document has been verified successfully.`,
-        variant: "success",
-      });
-    }, 2000);
-  };
 
   const handleFetchRationDetails = async () => {
     try {
@@ -759,6 +706,8 @@ const ApplyLoan = () => {
   const completedCount = completedSections.length;
   const progressPercentage = (completedCount / profileSections.length) * 100;
 
+  console.log("📌 ApplyLoan: using loan_application_id =", currentLoanApplicationId);
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl pt-20">
       {/* PAGE HEADER */}
@@ -778,7 +727,7 @@ const ApplyLoan = () => {
         )}
       </div>
 
-      {/* PROGRESS CARD */}
+      {/* PROGRESS CARD
       <Card className="shadow-lg mb-8">
         <CardContent className="pt-6">
           <div className="flex items-center justify-between mb-2">
@@ -789,7 +738,7 @@ const ApplyLoan = () => {
           </div>
           <Progress value={progressPercentage} className="h-3 bg-gray-200" />
         </CardContent>
-      </Card>
+      </Card> */}
 
       {/* LAYOUT */}
       <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr] gap-8">
@@ -818,12 +767,17 @@ const ApplyLoan = () => {
                 form={incomeForm}
                 onSubmit={onIncomeSubmit}
                 selectedSchemeName={selectedSchemeName}
+                loanApplicationId={currentLoanApplicationId}
               />
             )}
 
             {/* BANK SECTION */}
             {selectedSection === "bank" && (
-              <BankSection form={bankForm} onSubmit={onBankSubmit} />
+              <BankSection
+                form={bankForm}
+                onSubmit={onBankSubmit}
+                loanApplicationId={currentLoanApplicationId}
+              />
             )}
 
             {/* EXPENSES & COMMODITIES */}
@@ -882,6 +836,7 @@ const ApplyLoan = () => {
                 setLoanAmount={setLoanAmount}
                 showExpensesForLoan={showExpensesForLoan}
                 selectedSchemeName={selectedSchemeName}
+                loanApplicationId={currentLoanApplicationId}
               />
             )}
           </CardContent>

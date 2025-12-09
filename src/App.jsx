@@ -63,6 +63,8 @@ import TrackApplication from "./pages/dashboard/TrackApplication";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoutes"; // <- import your wrapper
 import ApplyLoan from "./pages/ApplyLoan";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 
 const queryClient = new QueryClient();
 
@@ -92,6 +94,8 @@ const App = () => (
           <Route path="/" element={<Landing />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
 
           {/* Protect all dashboard routes */}
           <Route

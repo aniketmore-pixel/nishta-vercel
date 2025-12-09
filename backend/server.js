@@ -13,7 +13,7 @@ const cors = require("cors");
 const { createClient } = require("@supabase/supabase-js");
 const jwt = require("jsonwebtoken");
 const app = express();
-app.use(cors());
+app.use(cors({ origin: '*' }));
 app.use(express.json());
 
 // ---------------------
@@ -256,7 +256,7 @@ app.post("/api/submit-profile", async (req, res) => {
       occupation,
       registrationDate,
       casteCertificateNumber,
-      region
+      // region
     } = req.body;
 
     // 1️⃣ UPSERT beneficiary
@@ -332,7 +332,7 @@ app.post("/api/submit-profile", async (req, res) => {
             eligibility_status: true,
             occupation: occupation, // save occupation enum
             caste_certificate_number: casteCertificateNumber, // <<--- NEW
-            region: region
+            // region: region
           },
           { onConflict: "aadhar_no" }
         );
@@ -388,6 +388,10 @@ app.use("/api", Income_And_Assetdetails_Route);
 app.use("/api", bankDetailsRoute);
 
 app.use("/api", loanDetailsRoute);
+
+const aadhaarRoutes = require("./routes/aadhaar.js");
+app.use("/api/auth", aadhaarRoutes);
+
 // ---------------------
 // Start Server
 // ---------------------

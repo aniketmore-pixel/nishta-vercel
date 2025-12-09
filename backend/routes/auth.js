@@ -53,15 +53,15 @@ router.post("/login", async (req, res) => {
     // Twilio SMS sending (DISABLED IN DEVELOPMENT)
     // ----------------------------------------------------
     /*
-    try {
-      await client.messages.create({
-        body: `Your OTP is ${otp}. It expires in 5 minutes.`,
-        from: process.env.TWILIO_PHONE_NUMBER,
-        to: "+91" + user.phone_no,
-      });
-    } catch (smsError) {
-      return res.status(500).json({ error: "Failed to send OTP SMS" });
-    }
+    // try {
+    //   await client.messages.create({
+    //     body: `Your OTP is ${otp}. It expires in 5 minutes.`,
+    //     from: process.env.TWILIO_PHONE_NUMBER,
+    //     to: "+91" + user.phone_no,
+    //   });
+    // } catch (smsError) {
+    //   return res.status(500).json({ error: "Failed to send OTP SMS" });
+    // }
     */
 
     // ✅ Return JWT immediately for dev
@@ -109,6 +109,8 @@ router.post("/verify-otp", (req, res) => {
 
   console.log("✅ OTP verified successfully");
 
+  
+
   // Sign JWT for session
   const token = jwt.sign({ aadhar_no }, process.env.JWT_SECRET, {
     expiresIn: "7d",
@@ -119,5 +121,236 @@ router.post("/verify-otp", (req, res) => {
 
   res.json({ message: "Login successful", token });
 });
+
+// -------------------------------------------------------------
+// 🔄 FORGOT PASSWORD → Send OTP
+// -------------------------------------------------------------
+router.post("/forgot-password", async (req, res) => {
+  const { aadhar_no } = req.body;
+  const supabase = req.app.locals.supabase;
+
+  if (!aadhar_no) {
+    return res.status(400).json({ error: "Aadhaar number is required" });
+  }
+
+  try {
+    // Check if user exists
+    const { data, error } = await supabase
+      .from("beneficiary")
+      .select("aadhar_no, phone_no")
+      .eq("aadhar_no", aadhar_no)
+      .single();
+
+    if (error) return res.status(500).json({ error: error.message });
+    if (!data) return res.status(400).json({ error: "Aadhaar not found" });
+
+    // Generate OTP
+    const otp = generateOTP();
+    const expires = Date.now() + 5 * 60 * 1000; // 5 min
+
+    otpStore[aadhar_no] = { otp, expires };
+
+    console.log(otp);
+
+    // (SMS disabled for dev)
+    // SEND SMS HERE IF YOU ENABLE TWILIO
+
+    return res.json({
+      message: "OTP sent for password reset",
+      otpSent: true,
+    });
+  } catch (err) {
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+// -------------------------------------------------------------
+// 🔐 RESET PASSWORD → Verify OTP + Update Password
+// -------------------------------------------------------------
+router.post("/reset-password", async (req, res) => {
+  const { aadhar_no, otp, new_password } = req.body;
+  const supabase = req.app.locals.supabase;
+
+  if (!aadhar_no || !otp || !new_password) {
+    return res.status(400).json({ error: "All fields are required" });
+  }
+
+  const stored = otpStore[aadhar_no];
+  if (!stored) {
+    return res.status(400).json({ error: "No OTP found. Please request again." });
+  }
+
+  if (Date.now() > stored.expires) {
+    delete otpStore[aadhar_no];
+    return res.status(400).json({ error: "OTP expired" });
+  }
+
+  if (String(otp) !== String(stored.otp)) {
+    return res.status(400).json({ error: "Incorrect OTP" });
+  }
+
+  // OTP is valid → update password in Supabase
+  try {
+    const { error } = await supabase
+      .from("beneficiary")
+      .update({ password: new_password })
+      .eq("aadhar_no", aadhar_no);
+
+    if (error) return res.status(500).json({ error: error.message });
+
+    // Clear OTP
+    delete otpStore[aadhar_no];
+
+    return res.json({ message: "Password updated successfully" });
+  } catch (err) {
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+// router.post("/signup/create-account", async (req, res) => {
+//   const {
+//     aadhaar_no,
+//     name,
+//     age,
+//     gender,
+//     phone_no,
+//     address,
+//     income_yearly,
+//     state,
+//     district,
+//     occupation,
+//     password,
+//     caste,
+//     registration_date,
+//   } = req.body;
+
+//   // Validate required fields
+//   if (!aadhaar_no || !name || !password) {
+//     return res.status(400).json({
+//       error: "Aadhaar number, name, and password are required.",
+//     });
+//   }
+
+//   try {
+//     // Insert data into Supabase table `beneficiary`
+//     const supabase = req.app.locals.supabase
+//       .from("beneficiary")
+//       .insert([
+//         {
+//           aadhar_no: aadhaar_no,
+//           full_name: name,
+//           age: age || null,
+//           gender: gender || null,
+//           phone_no: phone_no || null,
+//           address: address || null,
+//           income_yearly: income_yearly || null,
+//           state: state || null,
+//           district: district || null,
+//           occupation: occupation || null,
+//           registration_date: registration_date || new Date(),
+//           password,
+//           caste: caste || null,
+//         },
+//       ])
+//       .select()
+//       .single();
+
+//     // Supabase error
+//     if (error) {
+//       console.error("Supabase Insert Error:", error);
+//       return res.status(400).json({ error: error.message });
+//     }
+
+//     // Success response
+//     return res.status(200).json({
+//       message: "Account created successfully!",
+//       beneficiary: data,
+//     });
+
+//   } catch (err) {
+//     console.error("Server Error:", err);
+//     return res.status(500).json({
+//       error: "Internal server error. Could not create account.",
+//     });
+//   }
+// });
+
+router.post("/signup/create-account", async (req, res) => {
+  const supabase = req.app.locals.supabase; // ✅ correct
+
+  try {
+    const {
+      aadhaar_no,
+      name,
+      age,
+      gender,
+      phone_no,
+      address,
+      income_yearly,
+      state,
+      district,
+      occupation,
+      password,
+      caste,
+      registration_date,
+    } = req.body;
+
+    // Required fields
+    if (!aadhaar_no || !name || !password) {
+      return res.status(400).json({
+        error: "Aadhaar number, name, and password are required.",
+      });
+    }
+
+    // ---------------------------------------------------
+    // ✅ INSERT INTO BENEFICIARY TABLE (CORRECT WAY)
+    // ---------------------------------------------------
+    const { data, error } = await supabase
+      .from("beneficiary")
+      .insert([
+        {
+          aadhar_no: aadhaar_no,
+          full_name: name,
+          age: age || null,
+          gender: gender || null,
+          phone_no: phone_no || null,
+          address: address || null,
+          income_yearly: income_yearly || null,
+          state: state || null,
+          district: district || null,
+          occupation: occupation || null,
+          registration_date: registration_date || new Date(),
+          password: password,
+          caste: caste || null,
+        },
+      ])
+      .select()
+      .single();
+
+    // ---------------------------------------------------
+    // Supabase INSERT error
+    // ---------------------------------------------------
+    if (error) {
+      console.error("Supabase Insert Error:", error);
+      return res.status(400).json({ error: error.message });
+    }
+
+    // ---------------------------------------------------
+    // If success
+    // ---------------------------------------------------
+    return res.status(200).json({
+      message: "Account created successfully!",
+      beneficiary: data,
+    });
+
+  } catch (err) {
+    console.error("Server Error:", err);
+    return res.status(500).json({
+      error: "Internal server error.",
+    });
+  }
+});
+
+
 
 module.exports = router;

@@ -10,14 +10,19 @@ const __dirname = path.dirname(__filename);
 
 export default defineConfig(({ mode }) => ({
   server: {
-    host: "::",
+    host: true,           // listen on all interfaces (IPv4 & IPv6)
     port: 8080,
+    strictPort: true,     // fail if 8080 is taken
+    cors: true,           // allow cross-origin requests
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
-    extensions: [".js", ".jsx"], // Add this so Vite resolves JSX files
+    extensions: [".js", ".jsx"],
   },
 }));
+
+
+
